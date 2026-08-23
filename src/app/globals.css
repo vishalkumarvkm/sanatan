@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --prabhat-cream: #FBF3E6;
+    --prabhat-deep: #F1E1C6;
+    --sindoor: #B4392B;
+    --sindoor-deep: #8E2C21;
+    --haldi: #D9A441;
+    --haldi-soft: #EFCB86;
+    --tulsi: #45613B;
+    --sandhya: #1C2140;
+    --ink: #362A22;
+    --ink-soft: #6B5C4E;
+    --paper-line: rgba(54,42,34,0.13);
+    --white: #FFFDF9;
+  }
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: #EDE7DC;
+  color: #362A22;
+  font-family: var(--font-manrope), sans-serif;
+  overflow-x: hidden;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* Custom scrollbar hiding utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Devanagari font helper */
+.devanagari-font {
+  font-family: 'Noto Sans Devanagari', sans-serif;
+}
+
+/* Hide Next.js development toast overlay indicator */
+nextjs-portal,
+[class*="nextjs-toast-errors"],
+[class*="nextjs-portal"] {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

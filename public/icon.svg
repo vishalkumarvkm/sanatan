@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <circle cx="50" cy="50" r="48" fill="#B4392B" />
+  <circle cx="50" cy="50" r="44" fill="none" stroke="#EFCB86" stroke-width="2.5" stroke-dasharray="4 2" />
+  <circle cx="50" cy="50" r="40" fill="none" stroke="#EFCB86" stroke-width="1.5" />
+  <text x="50" y="66" font-family="'Noto Sans Devanagari', 'Segoe UI Devanagari', 'Arial', serif" font-size="52" font-weight="bold" fill="#FFFDF9" text-anchor="middle">ॐ</text>
+</svg>
