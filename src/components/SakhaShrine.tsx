@@ -19,6 +19,92 @@ interface Message {
   isAnimated?: boolean;
 }
 
+function parseInlineMarkdown(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|_[^_]+_)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    const token = match[0];
+    if (token.startsWith('**') && token.endsWith('**')) {
+      parts.push(
+        <strong key={match.index} className="font-semibold text-[#2C211A]">
+          {token.slice(2, -2)}
+        </strong>
+      );
+    } else if ((token.startsWith('*') && token.endsWith('*')) || (token.startsWith('_') && token.endsWith('_'))) {
+      parts.push(
+        <em key={match.index} className="italic font-serif text-[#4A3B32]">
+          {token.slice(1, -1)}
+        </em>
+      );
+    }
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts;
+}
+
+const FormattedMessage: React.FC<{ text: string }> = ({ text }) => {
+  if (!text) return null;
+
+  const blocks = text.split(/\n\s*\n/).filter(Boolean);
+
+  return (
+    <div className="flex flex-col gap-3 text-[13.5px] sm:text-[14px] leading-relaxed">
+      {blocks.map((block, idx) => {
+        const trimmed = block.trim();
+        
+        const isQuoteBlock =
+          (/^["'*\s]*"[\s\S]+"[*"'\s]*$/.test(trimmed)) ||
+          (/^\*"[\s\S]+"\*$/.test(trimmed)) ||
+          (trimmed.includes('Duhkheshv') || (trimmed.includes('Gita') && trimmed.includes('"')));
+
+        if (isQuoteBlock) {
+          const cleanQuote = trimmed.replace(/^["'*\s]+|["'*\s]+$/g, '');
+          return (
+            <div
+              key={idx}
+              className="my-1 p-3.5 sm:p-4 rounded-[16px] bg-[#FFF9EF] border-l-3 border-[#B4392B] shadow-2xs font-serif"
+            >
+              <p className="text-[#B4392B] font-medium italic text-[14px] leading-relaxed">
+                &ldquo;{parseInlineMarkdown(cleanQuote)}&rdquo;
+              </p>
+            </div>
+          );
+        }
+
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+          const lines = trimmed.split('\n');
+          return (
+            <ul key={idx} className="list-disc pl-5 flex flex-col gap-1 text-[#2C211A]">
+              {lines.map((line, lIdx) => (
+                <li key={lIdx}>
+                  {parseInlineMarkdown(line.replace(/^[-*]\s+/, ''))}
+                </li>
+              ))}
+            </ul>
+          );
+        }
+
+        return (
+          <p key={idx} className="leading-relaxed text-[#2C211A]">
+            {parseInlineMarkdown(trimmed)}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
+
 const TypewriterText: React.FC<{ text: string; onCharacterTyped?: () => void }> = ({
   text,
   onCharacterTyped,
@@ -32,11 +118,12 @@ const TypewriterText: React.FC<{ text: string; onCharacterTyped?: () => void }> 
     setIsTyping(true);
 
     const timer = setInterval(() => {
-      index++;
+      index += 2;
       if (index <= text.length) {
         setDisplayedText(text.slice(0, index));
         if (onCharacterTyped) onCharacterTyped();
       } else {
+        setDisplayedText(text);
         clearInterval(timer);
         setIsTyping(false);
       }
@@ -46,12 +133,12 @@ const TypewriterText: React.FC<{ text: string; onCharacterTyped?: () => void }> 
   }, [text, onCharacterTyped]);
 
   return (
-    <span>
-      {displayedText}
+    <div className="relative">
+      <FormattedMessage text={displayedText} />
       {isTyping && (
         <span className="inline-block w-1.5 h-3.5 ml-1 bg-[#B4392B] animate-pulse rounded-xs align-middle" />
       )}
-    </span>
+    </div>
   );
 };
 
@@ -210,8 +297,12 @@ export const SakhaShrine: React.FC<SakhaShrineProps> = ({
                   : "bg-[#F7EFE2] text-[#2C211A] rounded-tl-xs font-medium whitespace-pre-wrap border border-[rgba(54,42,34,0.08)]"
               }`}
             >
-              {msg.sender === "sakha" && msg.isAnimated ? (
-                <TypewriterText text={msg.text} onCharacterTyped={scrollToBottom} />
+              {msg.sender === "sakha" ? (
+                msg.isAnimated ? (
+                  <TypewriterText text={msg.text} onCharacterTyped={scrollToBottom} />
+                ) : (
+                  <FormattedMessage text={msg.text} />
+                )
               ) : (
                 <div className="whitespace-pre-wrap leading-relaxed">{msg.text}</div>
               )}

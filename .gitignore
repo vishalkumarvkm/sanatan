@@ -23,18 +23,28 @@
 # misc
 .DS_Store
 *.pem
+config/*.json
+!config/example-*.json
 
-# debug
+# debug & logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
-# env files (can opt-in for committing if needed)
-.env*
+# environment secret files (protect API keys & credentials)
+.env
+.env*.local
+.env.development
+.env.test
+.env.production
+!.env.example
 
-# vercel
+# vercel & IDEs
 .vercel
+.vscode/
+.idea/
 
 # typescript
 *.tsbuildinfo
