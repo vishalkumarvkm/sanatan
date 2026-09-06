@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Manrope, Noto_Sans_Devanagari } from "next/font/google";
+import { Fraunces, Inter, Noto_Sans_Devanagari } from "next/font/google";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -8,8 +8,8 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
-const manrope = Manrope({
-  variable: "--font-manrope",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
   display: "swap",
 });
@@ -22,8 +22,8 @@ const devanagari = Noto_Sans_Devanagari({
 });
 
 export const metadata: Metadata = {
-  title: "SpiritualSakha — Your Sacred Companion",
-  description: "Personalized spiritual journey and Sakha AI companion app.",
+  title: "Spiritual Sakha — A Spiritual Guide to Wellness",
+  description: "Personalized spiritual journey, Gyan scriptures, and Sakha AI companion.",
   icons: {
     icon: "/icon.svg",
     shortcut: "/icon.svg",
@@ -39,9 +39,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${manrope.variable} ${devanagari.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${inter.variable} ${devanagari.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full flex flex-col font-sans bg-[#EDE7DC] text-[#362A22]">
+      <body className="min-h-full flex flex-col font-sans bg-[#0A0A0A] text-[#FAFAFA]">
         {children}
       </body>
     </html>

@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { UserProfile } from "@/types/onboarding";
-import { VoiceAssistantPanel } from "@/components/VoiceAssistantPanel";
 import { generateSakhaResponse } from "@/lib/gemini";
 
 interface SakhaShrineProps {
   profile: UserProfile;
-  onResetOnboarding: () => void;
+  onResetOnboarding?: () => void;
+  onOpenVoice?: () => void;
   initialPrompt?: string;
+  onPromptConsumed?: () => void;
 }
 
 interface Message {
@@ -16,209 +17,82 @@ interface Message {
   sender: "sakha" | "user";
   text: string;
   timestamp: string;
-  isAnimated?: boolean;
 }
-
-function parseInlineMarkdown(text: string): React.ReactNode[] {
-  const parts: React.ReactNode[] = [];
-  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|_[^_]+_)/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
-    }
-    const token = match[0];
-    if (token.startsWith('**') && token.endsWith('**')) {
-      parts.push(
-        <strong key={match.index} className="font-semibold text-[#2C211A]">
-          {token.slice(2, -2)}
-        </strong>
-      );
-    } else if ((token.startsWith('*') && token.endsWith('*')) || (token.startsWith('_') && token.endsWith('_'))) {
-      parts.push(
-        <em key={match.index} className="italic font-serif text-[#4A3B32]">
-          {token.slice(1, -1)}
-        </em>
-      );
-    }
-    lastIndex = regex.lastIndex;
-  }
-
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
-
-  return parts;
-}
-
-const FormattedMessage: React.FC<{ text: string }> = ({ text }) => {
-  if (!text) return null;
-
-  const blocks = text.split(/\n\s*\n/).filter(Boolean);
-
-  return (
-    <div className="flex flex-col gap-3 text-[13.5px] sm:text-[14px] leading-relaxed">
-      {blocks.map((block, idx) => {
-        const trimmed = block.trim();
-        
-        const isQuoteBlock =
-          (/^["'*\s]*"[\s\S]+"[*"'\s]*$/.test(trimmed)) ||
-          (/^\*"[\s\S]+"\*$/.test(trimmed)) ||
-          (trimmed.includes('Duhkheshv') || (trimmed.includes('Gita') && trimmed.includes('"')));
-
-        if (isQuoteBlock) {
-          const cleanQuote = trimmed.replace(/^["'*\s]+|["'*\s]+$/g, '');
-          return (
-            <div
-              key={idx}
-              className="my-1 p-3.5 sm:p-4 rounded-[16px] bg-[#FFF9EF] border-l-3 border-[#B4392B] shadow-2xs font-serif"
-            >
-              <p className="text-[#B4392B] font-medium italic text-[14px] leading-relaxed">
-                &ldquo;{parseInlineMarkdown(cleanQuote)}&rdquo;
-              </p>
-            </div>
-          );
-        }
-
-        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-          const lines = trimmed.split('\n');
-          return (
-            <ul key={idx} className="list-disc pl-5 flex flex-col gap-1 text-[#2C211A]">
-              {lines.map((line, lIdx) => (
-                <li key={lIdx}>
-                  {parseInlineMarkdown(line.replace(/^[-*]\s+/, ''))}
-                </li>
-              ))}
-            </ul>
-          );
-        }
-
-        return (
-          <p key={idx} className="leading-relaxed text-[#2C211A]">
-            {parseInlineMarkdown(trimmed)}
-          </p>
-        );
-      })}
-    </div>
-  );
-};
-
-const TypewriterText: React.FC<{ text: string; onCharacterTyped?: () => void }> = ({
-  text,
-  onCharacterTyped,
-}) => {
-  const [displayedText, setDisplayedText] = useState("");
-  const [isTyping, setIsTyping] = useState(true);
-
-  useEffect(() => {
-    let index = 0;
-    setDisplayedText("");
-    setIsTyping(true);
-
-    const timer = setInterval(() => {
-      index += 2;
-      if (index <= text.length) {
-        setDisplayedText(text.slice(0, index));
-        if (onCharacterTyped) onCharacterTyped();
-      } else {
-        setDisplayedText(text);
-        clearInterval(timer);
-        setIsTyping(false);
-      }
-    }, 16);
-
-    return () => clearInterval(timer);
-  }, [text, onCharacterTyped]);
-
-  return (
-    <div className="relative">
-      <FormattedMessage text={displayedText} />
-      {isTyping && (
-        <span className="inline-block w-1.5 h-3.5 ml-1 bg-[#B4392B] animate-pulse rounded-xs align-middle" />
-      )}
-    </div>
-  );
-};
 
 export const SakhaShrine: React.FC<SakhaShrineProps> = ({
   profile,
-  onResetOnboarding,
+  onOpenVoice,
   initialPrompt,
+  onPromptConsumed,
 }) => {
-  const chatScrollRef = useRef<HTMLDivElement>(null);
-
   const [messages, setMessages] = useState<Message[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("spiritualsakha_chat_messages");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed.map((m: Message) => ({ ...m, isAnimated: false }));
-          }
-        }
-      } catch (e) {
-        console.error("Failed to load chat history", e);
-      }
-    }
-
-    const userHasName = Boolean(profile.name && profile.name.trim().length > 0);
-    const namePart = userHasName ? ` ${profile.name.trim()}` : "";
-    const devta = profile.ishtDevta || "Shiva";
-    const moodNote = profile.innerSeason
-      ? ` Aapki ${profile.innerSeason.toLowerCase()} bhavna ka main samman karta hoon.`
-      : " Aapka man yahan shanti aur clarity praapt kare.";
-    const questionRef = profile.seekingQuestion1
-      ? ` Aapke sawal "${profile.seekingQuestion1}" par milkar vichar karte hain.`
-      : " Aaj aapke man mein kya vichar ya sawal hai?";
-
+    const isShiva = profile.ishtDevta?.toLowerCase().includes("shiva") ?? true;
+    const name = profile.name ? profile.name.trim() : "Priya";
     return [
       {
-        id: "1",
+        id: "msg-1",
         sender: "sakha",
-        text: `Namaste${namePart}! SpiritualSakha mein aapka hardik swagat hai. Bhagwan ${devta} ki pawan kripa se, main aapke saath hoon.${moodNote}${questionRef}`,
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        isAnimated: true,
+        text: `Namaste ${name}. Today is Trayodashi — tomorrow evening is Pradosh Vrat. A sacred time for ${isShiva ? "Shiva abhishek and deep peace" : "quiet contemplation and prayer"}. Shall I guide you through a home ritual?`,
+        timestamp: "Just now",
       },
     ];
   });
 
-  useEffect(() => {
-    try {
-      localStorage.setItem("spiritualsakha_chat_messages", JSON.stringify(messages));
-    } catch (e) {
-      console.error("Failed to save chat history", e);
-    }
-  }, [messages]);
+  const [inputValue, setInputValue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const handledPromptRef = useRef<string | null>(null);
+  const isSendingRef = useRef(false);
 
-  const [inputMessage, setInputMessage] = useState("");
-  const [showProfileDrawer, setShowProfileDrawer] = useState(false);
-  const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
-  const [loadingAI, setLoadingAI] = useState(false);
+  const quickPrompts = [
+    "Show me the vidhi",
+    "Today's panchang",
+    "How to calm anxiety",
+    "Play a bhajan",
+  ];
 
-  const scrollToBottom = useCallback(() => {
-    if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
-    }
-  }, []);
+  const cannedAnswers: Record<string, string> = {
+    "Show me the vidhi":
+      "Bathe and wear clean clothes. Place the Shivling facing north. Offer water, then milk in a thin stream while chanting Om Namah Shivaya. Place bel patra. Light a single diya and keep it through pradosh kaal.",
+    "Today's panchang":
+      "Today is Trayodashi, Sravana month, Rohini nakshatra. Rahu Kaal: 4:30–6:00pm. Avoid starting major new commitments during that window.",
+    "How to calm anxiety":
+      "Sit comfortably and take five slow, deep breaths. Chant Om three times from the naval. Remember Krishna's counsel in the Gita: you hold power over your effort, not the outcomes. Surrender the rest to the divine.",
+    "Play a bhajan":
+      "Opening the sacred shrine player with divine chants and stotrams for your reflection.",
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, loadingAI, scrollToBottom]);
+  }, [messages, isTyping]);
 
-  const handleSendMessage = async (textToSend?: string) => {
-    const msgText = textToSend || inputMessage;
-    if (!msgText.trim()) return;
+  useEffect(() => {
+    if (
+      initialPrompt &&
+      initialPrompt.trim() &&
+      handledPromptRef.current !== initialPrompt.trim()
+    ) {
+      handledPromptRef.current = initialPrompt.trim();
+      handleSendMessage(initialPrompt.trim());
+      onPromptConsumed?.();
+    }
+  }, [initialPrompt, onPromptConsumed]);
+
+  const handleSendMessage = async (text: string) => {
+    const userText = text.trim();
+    if (!userText || isSendingRef.current || isTyping) return;
+
+    isSendingRef.current = true;
+    setIsTyping(true);
 
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: `user-${Date.now()}-${Math.random()}`,
       sender: "user",
-      text: msgText,
+      text: userText,
       timestamp: new Date().toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
@@ -226,206 +100,208 @@ export const SakhaShrine: React.FC<SakhaShrineProps> = ({
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    if (!textToSend) setInputMessage("");
-    setLoadingAI(true);
+    setInputValue("");
+
+    if (cannedAnswers[userText]) {
+      setTimeout(() => {
+        const sakhaMsg: Message = {
+          id: `sakha-${Date.now()}-${Math.random()}`,
+          sender: "sakha",
+          text: cannedAnswers[userText],
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        };
+        setMessages((prev) => [...prev, sakhaMsg]);
+        setIsTyping(false);
+        isSendingRef.current = false;
+      }, 700);
+      return;
+    }
 
     try {
-      const aiReply = await generateSakhaResponse(msgText, profile);
+      const response = await generateSakhaResponse(userText, profile);
       const sakhaMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `sakha-${Date.now()}-${Math.random()}`,
         sender: "sakha",
-        text: aiReply,
+        text: response,
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
-        isAnimated: true,
       };
       setMessages((prev) => [...prev, sakhaMsg]);
-    } catch (err) {
-      console.error("Failed to generate Sakha AI reply:", err);
+    } catch (e) {
+      console.error("Sakha response error:", e);
+      const fallbackMsg: Message = {
+        id: `sakha-${Date.now()}-${Math.random()}`,
+        sender: "sakha",
+        text: "Om Shanti. Keep your faith steady; every circumstance is a step toward greater clarity and self-awareness.",
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      setMessages((prev) => [...prev, fallbackMsg]);
     } finally {
-      setLoadingAI(false);
+      setIsTyping(false);
+      isSendingRef.current = false;
     }
-  };
-
-  const handledPromptRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (initialPrompt && initialPrompt.trim() && handledPromptRef.current !== initialPrompt) {
-      handledPromptRef.current = initialPrompt;
-      handleSendMessage(initialPrompt);
-    }
-  }, [initialPrompt]);
-
-  const exportDataJSON = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(profile, null, 2));
-    const downloadAnchor = document.createElement("a");
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `spiritualsakha_profile_${profile.name || "user"}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
   };
 
   return (
-    <div className="w-full h-[calc(100vh-3.5rem)] md:h-screen bg-[#FDFBF7] flex flex-col justify-between text-[#362A22] no-scrollbar overflow-hidden pt-13">
-      
-      {/* Voice Assistant Panel Modal */}
-      <VoiceAssistantPanel
-        isOpen={isVoiceAssistantOpen}
-        onClose={() => setIsVoiceAssistantOpen(false)}
-        profile={profile}
-      />
+    <div className="w-full h-[calc(100dvh-68px)] md:h-[calc(100vh-100px)] bg-[#080808] md:bg-[#111111] text-[#F5F5F5] flex flex-col relative overflow-hidden font-sans md:rounded-[22px] md:border md:border-[#252525] md:shadow-2xl">
+      {/* 1. Header — Sakha Profile Area */}
+      <header className="h-[76px] sm:h-[80px] px-5 sm:px-6 flex items-center justify-between border-b border-[#252525] shrink-0 bg-[#080808]/95 md:bg-[#151515]/90 backdrop-blur-md z-10 select-none">
+        <div className="flex items-center gap-3.5">
+          {/* 44x44 circular saffron/gold avatar */}
+          <div className="w-[44px] h-[44px] rounded-full bg-gradient-to-br from-[#D9A441] to-[#E8722A] flex items-center justify-center shrink-0 shadow-[0_0_14px_rgba(217,164,65,0.25)]">
+            <span className="devanagari-font text-lg text-[#080808] font-bold">
+              ॐ
+            </span>
+          </div>
+          <div className="flex flex-col">
+            <h1 className="font-serif-fraunces text-[19px] sm:text-[20px] font-semibold text-[#F5F5F5] leading-tight">
+              Sakha
+            </h1>
+            <div className="text-[12.5px] text-[#B58A3A] flex items-center gap-1.5 font-medium mt-0.5">
+              <span className="w-[6.5px] h-[6.5px] rounded-full bg-[#D9A441] animate-pulse shrink-0" />
+              <span>here with you</span>
+            </div>
+          </div>
+        </div>
 
-      {/* SAKHA CHAT MESSAGE HISTORY STREAM WITH TYPING ANIMATION */}
-      <main
-        ref={chatScrollRef}
-        className="flex-1 px-4 sm:px-8 md:px-12 lg:px-16 py-3.5 sm:py-4 overflow-y-auto no-scrollbar flex flex-col gap-3.5 max-w-3xl mx-auto w-full scroll-smooth"
-      >
-        {messages.map((msg) => (
+        {onOpenVoice && (
+          <button
+            onClick={onOpenVoice}
+            title="Start voice dialogue"
+            type="button"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#151515] hover:bg-[#1D1D1D] border border-[#D9A441]/35 text-[#D9A441] text-xs font-semibold cursor-pointer transition-all active:scale-95 shadow-xs"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-[#D9A441] animate-pulse" />
+            <span>Voice</span>
+          </button>
+        )}
+      </header>
+
+      {/* 2 & 3. Conversation Area — Improved Bubbles and Flex Spacing */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5 flex flex-col gap-4 no-scrollbar scroll-smooth">
+        {messages.map((m) => (
           <div
-            key={msg.id}
-            className={`flex flex-col max-w-[90%] sm:max-w-[82%] ${
-              msg.sender === "user" ? "ml-auto items-end" : "mr-auto items-start"
+            key={m.id}
+            className={`w-fit max-w-[82%] sm:max-w-[78%] md:max-w-[70%] px-4.5 py-3.5 sm:px-5 sm:py-4 rounded-[18px] text-[15.5px] sm:text-[16px] leading-[1.55] animate-message-enter flex flex-col gap-1 shadow-xs ${
+              m.sender === "sakha"
+                ? "self-start bg-[#1D1D1D] text-[#F5F5F5] border border-[#252525] rounded-bl-[5px]"
+                : "self-end bg-[#D9A441] text-[#080808] font-medium border border-[#B58A3A] rounded-br-[5px]"
             }`}
           >
-            <div
-              className={`p-3.5 sm:p-4 rounded-[20px] text-[13.5px] sm:text-[14px] leading-relaxed font-medium shadow-2xs ${
-                msg.sender === "user"
-                  ? "bg-[#EFE1CE] text-[#362A22] rounded-tr-xs font-semibold whitespace-pre-wrap border border-[rgba(54,42,34,0.08)]"
-                  : "bg-[#F7EFE2] text-[#2C211A] rounded-tl-xs font-medium whitespace-pre-wrap border border-[rgba(54,42,34,0.08)]"
+            <div className="whitespace-pre-wrap">{m.text}</div>
+            <span
+              className={`text-[11px] self-end mt-0.5 select-none ${
+                m.sender === "sakha"
+                  ? "text-[#9A9A9A]"
+                  : "text-[rgba(8,8,8,0.65)] font-semibold"
               }`}
             >
-              {msg.sender === "sakha" ? (
-                msg.isAnimated ? (
-                  <TypewriterText text={msg.text} onCharacterTyped={scrollToBottom} />
-                ) : (
-                  <FormattedMessage text={msg.text} />
-                )
-              ) : (
-                <div className="whitespace-pre-wrap leading-relaxed">{msg.text}</div>
-              )}
-            </div>
-            <span className="text-[10px] text-[#8C7A6B] mt-1 px-1.5 font-medium">
-              {msg.timestamp}
+              {m.timestamp}
             </span>
           </div>
         ))}
 
-        {loadingAI && (
-          <div className="mr-auto items-start flex flex-col max-w-[75%]">
-            <div className="p-3 bg-[#F7EFE2] border border-[rgba(54,42,34,0.08)] rounded-[18px] text-[12.5px] text-[#6B5C4E] flex items-center gap-2">
-              <span className="devanagari-font text-base text-[#B4392B] animate-pulse">ॐ</span>
-              <span>Sakha AI is reflecting...</span>
-            </div>
+        {isTyping && (
+          <div className="self-start flex items-center gap-2 px-4.5 py-3 rounded-[18px] rounded-bl-[5px] bg-[#1D1D1D] border border-[#252525] text-xs text-[#B58A3A] font-medium animate-message-enter shadow-xs">
+            <span>Sakha is thinking</span>
+            <span className="flex items-center gap-1 ml-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#D9A441] animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#D9A441] animate-pulse [animation-delay:0.2s]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#D9A441] animate-pulse [animation-delay:0.4s]" />
+            </span>
           </div>
         )}
-      </main>
+        <div ref={messagesEndRef} />
+      </div>
 
-      {/* BOTTOM COMPACT FLOATING PILL INPUT BAR */}
-      <footer className="w-full px-3 sm:px-6 md:px-12 py-2 md:py-3 border-t border-[rgba(54,42,34,0.08)] bg-[#FDFBF7]/95 backdrop-blur-md flex-shrink-0 z-30">
-        <div className="max-w-3xl mx-auto flex items-center bg-[#FFFDF9] border border-[rgba(54,42,34,0.15)] rounded-full p-1 pl-5 shadow-sm">
+      {/* 4. Quick Suggestion Chips — Horizontally Scrollable without Clipping */}
+      <div className="shrink-0 py-2.5 px-4 md:px-6 flex items-center overflow-x-auto no-scrollbar scroll-smooth gap-2.5 flex-nowrap select-none">
+        {quickPrompts.map((prompt) => (
+          <button
+            key={prompt}
+            type="button"
+            onClick={() => handleSendMessage(prompt)}
+            className="shrink-0 h-[36px] px-4 rounded-full border border-[#252525] bg-[#151515] hover:bg-[#1D1D1D] hover:border-[#D9A441]/45 text-[#F5F5F5] text-[13.5px] font-semibold cursor-pointer whitespace-nowrap transition-all active:scale-[0.97] flex items-center justify-center shadow-xs"
+          >
+            {prompt}
+          </button>
+        ))}
+      </div>
+
+      {/* 5. Input Composer — Redesigned with Balanced Touch Targets */}
+      <div className="shrink-0 px-4 md:px-6 py-3.5 border-t border-[#252525] bg-[#080808] md:bg-[#151515] flex items-center gap-3">
+        <div className="flex-1 h-[52px] bg-[#151515] border border-[#252525] focus-within:border-[#D9A441] rounded-full px-5 flex items-center transition-colors shadow-inner">
           <input
             type="text"
-            placeholder="Ask Sakha for guidance..."
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-            className="flex-1 bg-transparent border-none text-[13.5px] text-[#362A22] font-medium outline-none placeholder-[#8C7A6B]"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage(inputValue);
+              }
+            }}
+            placeholder="Ask Sakha anything…"
+            className="w-full bg-transparent text-[#F5F5F5] text-[15px] sm:text-[16px] placeholder:text-[#9A9A9A] outline-none"
           />
-          
-          {/* Microphone Button */}
-          <button
-            type="button"
-            onClick={() => setIsVoiceAssistantOpen(true)}
-            title="Sakha Voice Agent"
-            className="p-2 rounded-full transition-colors text-[#6B5C4E] hover:text-[#B4392B] hover:bg-[#FBF3E6] flex-shrink-0 cursor-pointer"
-          >
-            <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              <line x1="12" y1="19" x2="12" y2="23"/>
-              <line x1="8" y1="23" x2="16" y2="23"/>
-            </svg>
-          </button>
-
-          {/* Send Button */}
-          <button
-            type="button"
-            onClick={() => handleSendMessage()}
-            disabled={loadingAI}
-            className="bg-[#B4392B] hover:bg-[#8E2C21] text-[#FFFDF9] px-6 py-2 rounded-full font-bold text-[13px] transition-all active:scale-98 shadow-xs flex-shrink-0 disabled:opacity-50 cursor-pointer"
-          >
-            Send
-          </button>
         </div>
-      </footer>
 
-      {/* DPDP Profile & Privacy Drawer Modal */}
-      {showProfileDrawer && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-[#FFFDF9] border border-[rgba(54,42,34,0.13)] rounded-[24px] max-w-lg w-full p-5 flex flex-col gap-4 animate-fade-in max-h-[85vh] overflow-y-auto no-scrollbar shadow-2xl">
-            <div className="flex justify-between items-center border-b border-[rgba(54,42,34,0.13)] pb-3">
-              <div>
-                <h3 className="font-serif text-[18px] font-bold text-[#362A22]">
-                  DPDP Rights & Profile Data
-                </h3>
-                <p className="text-[11px] text-[#6B5C4E]">
-                  Your data is protected under India&apos;s Digital Personal Data Protection Act.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowProfileDrawer(false)}
-                className="text-[#6B5C4E] hover:text-[#362A22] text-xl font-bold p-1 cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
+        {/* 48x48 Circular Voice Button */}
+        <button
+          onClick={onOpenVoice}
+          title="Voice conversation"
+          type="button"
+          className="w-[48px] h-[48px] min-h-[44px] min-w-[44px] rounded-full bg-[#151515] hover:bg-[#1D1D1D] border border-[#D9A441]/40 text-[#D9A441] flex items-center justify-center cursor-pointer transition-all active:scale-95 shrink-0 shadow-xs"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 15a3 3 0 003-3V6a3 3 0 10-6 0v6a3 3 0 003 3z"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            />
+            <path
+              d="M19 11v1a7 7 0 01-14 0v-1M12 19v3"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
 
-            <div className="flex flex-col gap-2 text-[12px] text-[#362A22]">
-              <div className="bg-[#FBF3E6] p-3 rounded-[12px] flex justify-between">
-                <span className="font-bold">Seeker Name:</span>
-                <span>{profile.name || "Guest"}</span>
-              </div>
-              <div className="bg-[#FBF3E6] p-3 rounded-[12px] flex justify-between">
-                <span className="font-bold">Isht Devta:</span>
-                <span>{profile.ishtDevta || "Shiva"}</span>
-              </div>
-              <div className="bg-[#FBF3E6] p-3 rounded-[12px] flex justify-between">
-                <span className="font-bold">Language:</span>
-                <span>{profile.language || "English"}</span>
-              </div>
-              <div className="bg-[#FBF3E6] p-3 rounded-[12px] flex justify-between">
-                <span className="font-bold">Inner Feeling:</span>
-                <span>{profile.innerSeason || "Seeking Peace"}</span>
-              </div>
-            </div>
-
-            <div className="flex gap-2 justify-end pt-2">
-              <button
-                type="button"
-                onClick={exportDataJSON}
-                className="px-4 py-2 rounded-full bg-[#362A22] text-[#FFFDF9] text-xs font-bold hover:bg-[#1C2140] transition-colors"
-              >
-                📥 Export My Data (JSON)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onResetOnboarding();
-                  setShowProfileDrawer(false);
-                }}
-                className="px-4 py-2 rounded-full bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors"
-              >
-                🗑️ Erase Data
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+        {/* 48x48 Circular Send Button */}
+        <button
+          onClick={() => handleSendMessage(inputValue)}
+          disabled={!inputValue.trim() || isTyping}
+          title={inputValue.trim() ? "Send message" : "Type a message to send"}
+          type="button"
+          className={`w-[48px] h-[48px] min-h-[44px] min-w-[44px] rounded-full flex items-center justify-center transition-all shrink-0 ${
+            inputValue.trim() && !isTyping
+              ? "bg-[#D9A441] hover:bg-[#B58A3A] text-[#080808] shadow-[0_0_16px_rgba(217,164,65,0.35)] cursor-pointer active:scale-95"
+              : "bg-[#1D1D1D] text-[#555555] border border-[#252525] cursor-not-allowed opacity-60"
+          }`}
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M12 19V5M5 12l7-7 7 7" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 };

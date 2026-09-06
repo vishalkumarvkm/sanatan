@@ -2,27 +2,27 @@
 
 @layer base {
   :root {
-    --prabhat-cream: #FBF3E6;
-    --prabhat-deep: #F1E1C6;
-    --sindoor: #B4392B;
-    --sindoor-deep: #8E2C21;
-    --haldi: #D9A441;
-    --haldi-soft: #EFCB86;
-    --tulsi: #45613B;
-    --sandhya: #1C2140;
-    --ink: #362A22;
-    --ink-soft: #6B5C4E;
-    --paper-line: rgba(54,42,34,0.13);
-    --white: #FFFDF9;
+    --black: #0A0A0A;
+    --card: #141414;
+    --card-raised: #1C1C1C;
+    --gold: #C9A55C;
+    --gold-soft: #A8904D;
+    --gold-dim: rgba(201,165,92,0.12);
+    --saffron: #E8722A;
+    --saffron-dim: rgba(232,114,42,0.15);
+    --white: #FAFAFA;
+    --white-soft: rgba(250,250,250,0.6);
+    --white-dim: rgba(250,250,250,0.3);
+    --line: rgba(250,250,250,0.07);
   }
 }
 
 html, body {
   margin: 0;
   padding: 0;
-  background-color: #EDE7DC;
-  color: #362A22;
-  font-family: var(--font-manrope), sans-serif;
+  background-color: #0A0A0A;
+  color: #FAFAFA;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
@@ -33,7 +33,6 @@ body::-webkit-scrollbar {
   display: none !important;
 }
 
-/* Custom scrollbar hiding utility */
 .no-scrollbar::-webkit-scrollbar {
   display: none !important;
 }
@@ -42,9 +41,86 @@ body::-webkit-scrollbar {
   scrollbar-width: none !important;
 }
 
-/* Devanagari font helper */
+.font-serif-fraunces {
+  font-family: var(--font-fraunces), serif;
+}
+
 .devanagari-font {
-  font-family: 'Noto Sans Devanagari', sans-serif;
+  font-family: var(--font-devanagari), 'Noto Sans Devanagari', sans-serif;
+}
+
+@keyframes fadein {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes ringpulse {
+  0% { transform: scale(0.7); opacity: 0.8; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-fadein {
+  animation: fadein 0.35s ease forwards;
+}
+
+@keyframes messageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-message-enter {
+  animation: messageEnter 0.22s ease-out forwards;
+}
+
+.animate-pulse-slow {
+  animation: pulse 2s infinite ease-in-out;
+}
+
+.animate-breathe {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+.animate-ringpulse-1 {
+  animation: ringpulse 2.2s ease-out infinite;
+}
+
+.animate-ringpulse-2 {
+  animation: ringpulse 2.2s ease-out infinite 0.7s;
+}
+
+.animate-ringpulse-3 {
+  animation: ringpulse 2.2s ease-out infinite 1.4s;
 }
 
 /* Hide Next.js development toast overlay indicator */

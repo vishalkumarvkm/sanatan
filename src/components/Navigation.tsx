@@ -4,169 +4,203 @@ import React from "react";
 import { UserProfile } from "@/types/onboarding";
 
 interface NavigationProps {
-  activeTab: "home" | "chat" | "shrine" | "profile" | "onboarding" | "login";
-  onTabChange: (tab: "home" | "chat" | "shrine" | "profile" | "onboarding" | "login") => void;
+  activeTab: "sakha" | "gyan" | "shrine" | "myspace" | "home" | "chat" | "profile" | "onboarding" | "login" | "splash";
+  onTabChange: (tab: any) => void;
   profile: UserProfile;
-  onOpenAuth: () => void;
-  onLogout?: () => void;
   onOpenVoice?: () => void;
+  onOpenProfile?: () => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
   activeTab,
   onTabChange,
   profile,
-  onOpenAuth,
-  onLogout,
   onOpenVoice,
+  onOpenProfile,
 }) => {
-  if (activeTab === "onboarding" || activeTab === "login") return null;
+  const isSakha = activeTab === "sakha" || activeTab === "chat";
+  const isGyan = activeTab === "gyan";
+  const isShrine = activeTab === "shrine";
+  const isMySpace = activeTab === "myspace" || activeTab === "home" || activeTab === "profile";
 
-  const isLoggedIn = Boolean(
-    (profile.phone && profile.phone.trim().length > 0) ||
-    profile.completedOnboarding ||
-    (profile.name && profile.name.trim().length > 0) ||
-    ["home", "chat", "shrine", "profile"].includes(activeTab)
-  );
+  const goldColor = "#D9A441";
+  const dimColor = "#9A9A9A";
 
   const navItems = [
-    { id: "home", label: "Home", shortLabel: "Home" },
-    { id: "chat", label: "Sakha Chat", shortLabel: "Chat" },
-    { id: "shrine", label: "Shrine", shortLabel: "Shrine" },
-    { id: "profile", label: "Profile", shortLabel: "Profile" },
-  ] as const;
+    {
+      id: "sakha",
+      label: "Sakha",
+      active: isSakha,
+      icon: (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={isSakha ? goldColor : dimColor}
+          strokeWidth="1.8"
+          className="transition-colors"
+        >
+          <path
+            d="M12 3c-4 0-7 3.5-7 8v5l-2 2h18l-2-2v-5c0-4.5-3-8-7-8z"
+            strokeLinejoin="round"
+          />
+          <path d="M9 19a3 3 0 006 0" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      id: "gyan",
+      label: "Gyan",
+      active: isGyan,
+      icon: (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={isGyan ? goldColor : dimColor}
+          strokeWidth="1.8"
+          className="transition-colors"
+        >
+          <path d="M4 5h11a2 2 0 012 2v13H6a2 2 0 01-2-2V5z" />
+          <path d="M17 5h3v15h-3" />
+        </svg>
+      ),
+    },
+    {
+      id: "shrine",
+      label: "Shrine",
+      active: isShrine,
+      icon: (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={isShrine ? goldColor : dimColor}
+          strokeWidth="1.8"
+          className="transition-colors"
+        >
+          <path d="M12 2C8 6 6 9 6 13a6 6 0 0012 0c0-4-2-7-6-11z" />
+          <path
+            d="M12 18a2 2 0 100-4 2 2 0 000 4z"
+            fill={isShrine ? goldColor : "none"}
+          />
+        </svg>
+      ),
+    },
+    {
+      id: "myspace",
+      label: "My Space",
+      active: isMySpace,
+      icon: (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={isMySpace ? goldColor : dimColor}
+          strokeWidth="1.8"
+          className="transition-colors"
+        >
+          <circle cx="12" cy="8" r="3.4" />
+          <path d="M5 20c0-3.9 3.1-6.5 7-6.5s7 2.6 7 6.5" />
+        </svg>
+      ),
+    },
+  ];
 
-  const renderNavIcon = (id: string) => {
-    switch (id) {
-      case "home":
-        return (
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-            <polyline points="9 22 9 12 15 12 15 22"/>
-          </svg>
-        );
-      case "chat":
-        return (
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
-        );
-      case "shrine":
-        return (
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2v4"/>
-            <path d="M12 6c-2.5 0-4.5 2-4.5 4.5 0 3 4.5 6.5 4.5 6.5s4.5-3.5 4.5-6.5C16.5 8 14.5 6 12 6z"/>
-            <path d="M4 19h16"/>
-            <path d="M6 19l1.5 3h9L18 19"/>
-          </svg>
-        );
-      case "profile":
-        return (
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
-          </svg>
-        );
-      default:
-        return null;
-    }
-  };
+  const userInitial = (profile.name?.trim() || "P").charAt(0).toUpperCase();
 
   return (
     <>
-      {/* TOP HEADER BAR */}
-      <header className="fixed top-0 left-0 right-0 h-13 bg-[#FBF3E6]/95 backdrop-blur-md border-b border-[rgba(54,42,34,0.1)] px-3 sm:px-6 lg:px-12 flex items-center justify-between z-40 shadow-2xs">
-        
-        {/* LEFT: BRAND LOGO */}
-        <div 
-          className="flex items-center gap-1.5 cursor-pointer flex-shrink-0" 
-          onClick={() => onTabChange("home")}
+      {/* ── DESKTOP HEADER NAVIGATION (md: and above) ── */}
+      <header className="hidden md:flex sticky top-0 inset-x-0 w-full z-40 bg-[#0A0A0A]/95 backdrop-blur-md border-b border-[rgba(250,250,250,0.07)] px-6 lg:px-12 py-3.5 items-center justify-between select-none">
+        {/* Brand */}
+        <div
+          onClick={() => onTabChange("myspace")}
+          className="flex items-center gap-3 cursor-pointer group"
         >
-          <span className="devanagari-font text-lg text-[#B4392B] font-bold">ॐ</span>
-          <span className="font-serif text-[15px] sm:text-[17px] font-bold text-[#362A22] tracking-wide">
-            SpiritualSakha
-          </span>
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#C9A55C] to-[#E8722A] flex items-center justify-center shadow-[0_0_15px_rgba(201,165,92,0.3)] group-hover:scale-105 transition-transform">
+            <span className="devanagari-font text-base text-[#0A0A0A] font-bold">
+              ॐ
+            </span>
+          </div>
+          <div className="flex flex-col">
+            <span className="font-serif-fraunces text-base font-medium tracking-wide text-[#FAFAFA]">
+              Spiritual Sakha
+            </span>
+            <span className="text-[10px] text-[rgba(250,250,250,0.4)] tracking-wider">
+              Divine Guide & Sanctuary
+            </span>
+          </div>
         </div>
 
-        {/* CENTER: DESKTOP NAV LINKS */}
-        <nav className="hidden md:flex items-center gap-6 lg:gap-8">
+        {/* Center Pill Switcher */}
+        <div className="flex items-center bg-[#141414] border border-[rgba(250,250,250,0.07)] rounded-full p-1 gap-1">
           {navItems.map((item) => (
             <button
               key={item.id}
-              type="button"
               onClick={() => onTabChange(item.id)}
-              className={`text-[13.5px] transition-all font-serif py-1 relative ${
-                activeTab === item.id
-                  ? "text-[#B4392B] font-bold border-b-2 border-[#B4392B]"
-                  : "text-[#6B5C4E] font-medium hover:text-[#362A22]"
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold tracking-wide transition-all cursor-pointer ${
+                item.active
+                  ? "bg-[#C9A55C] text-[#0A0A0A] shadow-sm"
+                  : "text-[rgba(250,250,250,0.5)] hover:text-[#FAFAFA] hover:bg-[#1C1C1C]"
+              }`}
+            >
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Right: Voice CTA & Profile Avatar */}
+        <div className="flex items-center gap-3">
+          {onOpenVoice && (
+            <button
+              onClick={onOpenVoice}
+              className="flex items-center gap-2 bg-[#141414] hover:bg-[#1C1C1C] border border-[#C9A55C]/40 text-[#C9A55C] hover:text-[#FAFAFA] px-4 py-2 rounded-full text-xs font-medium cursor-pointer transition-all active:scale-95"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#C9A55C] animate-pulse" />
+              <span>Voice Sakha</span>
+            </button>
+          )}
+
+          <button
+            onClick={onOpenProfile || (() => onTabChange("profile"))}
+            title={profile.name || "Devotee Profile"}
+            className="w-9 h-9 rounded-full bg-gradient-to-br from-[#C9A55C] to-[#E8722A] flex items-center justify-center text-[#0A0A0A] font-serif-fraunces font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
+          >
+            {userInitial}
+          </button>
+        </div>
+      </header>
+
+      {/* ── MOBILE BOTTOM NAVIGATION (< md) ── */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 w-full h-[68px] pb-[env(safe-area-inset-bottom)] bg-[#151515]/98 backdrop-blur-md border-t border-[#252525] flex items-center justify-around px-2 z-40 select-none shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => onTabChange(item.id)}
+            className="flex-1 flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 gap-1 cursor-pointer bg-transparent border-none group transition-all"
+          >
+            <div className="relative flex items-center justify-center">
+              {item.icon}
+            </div>
+            <span
+              className={`text-[11px] tracking-wide transition-colors ${
+                item.active
+                  ? "text-[#D9A441] font-semibold"
+                  : "text-[#9A9A9A] font-medium group-hover:text-[#F5F5F5]"
               }`}
             >
               {item.label}
-            </button>
-          ))}
-        </nav>
-
-        {/* RIGHT: CONTROLS & AUTH STATUS */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
-          {onOpenVoice && (
-            <button
-              type="button"
-              onClick={onOpenVoice}
-              title="Sakha Real-Time Voice Bot"
-              className="p-1.5 rounded-full bg-[#B4392B]/10 hover:bg-[#B4392B]/20 text-[#B4392B] transition-all flex items-center gap-1 text-[11px] sm:text-[11.5px] font-bold px-2.5 sm:px-3 cursor-pointer"
-            >
-              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                <line x1="12" y1="19" x2="12" y2="23"/>
-                <line x1="8" y1="23" x2="16" y2="23"/>
-              </svg>
-              <span className="inline sm:inline text-[11px]">Voice Sakha</span>
-            </button>
-          )}
-
-          {isLoggedIn ? (
-            <button
-              type="button"
-              onClick={onLogout || onOpenAuth}
-              className="bg-[#B4392B] hover:bg-[#8E2C21] text-[#FFFDF9] px-3 sm:px-4 py-1.5 rounded-full text-[11px] sm:text-[12px] font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1"
-              title="Logout from SpiritualSakha"
-            >
-              <span>Logout</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onOpenAuth}
-              className="bg-[#362A22] hover:bg-[#1C2140] text-[#FFFDF9] px-3 sm:px-4 py-1.5 rounded-full text-[11px] sm:text-[12px] font-bold transition-all shadow-xs cursor-pointer"
-            >
-              <span>Sign In</span>
-            </button>
-          )}
-        </div>
-
-      </header>
-
-      {/* THEMED MOBILE BOTTOM NAVIGATION BAR */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-[#FBF3E6]/95 backdrop-blur-md border-t border-[rgba(54,42,34,0.12)] px-4 flex items-center justify-around z-40 shadow-lg">
-        {navItems.map((item) => {
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onTabChange(item.id)}
-              className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-xl transition-all cursor-pointer ${
-                isActive
-                  ? "text-[#B4392B] font-bold scale-105"
-                  : "text-[#8C7A6B] hover:text-[#362A22]"
-              }`}
-            >
-              {renderNavIcon(item.id)}
-              <span className="text-[10px] font-serif tracking-tight">{item.shortLabel}</span>
-            </button>
-          );
-        })}
+            </span>
+            {item.active && (
+              <span className="w-1 h-1 rounded-full bg-[#D9A441] -mt-0.5" />
+            )}
+          </button>
+        ))}
       </nav>
     </>
   );

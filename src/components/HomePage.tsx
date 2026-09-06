@@ -1,322 +1,595 @@
 "use client";
 
-import React from "react";
-import { UserProfile, PanchangData, AstroBriefData, WisdomQuoteData } from "@/types/onboarding";
+import React, { useState } from "react";
+import { UserProfile } from "@/types/onboarding";
 
 interface HomePageProps {
   profile: UserProfile;
   onNavigateToChat: (initialPrompt?: string) => void;
   onNavigateToShrine: () => void;
   onOpenVoice?: () => void;
+  onOpenProfile?: () => void;
+  onUpdateProfile?: (updated: UserProfile) => void;
+  onResetOnboarding?: () => void;
+  initialSubTab?: "daily" | "profile";
 }
-
-const mockPanchang: PanchangData = {
-  date: "2026-08-23",
-  day: "Ravivaar (Sunday)",
-  tithi: {
-    name: "Shukla Chaturthi",
-    deity: "Ganesha",
-    endTime: "14:32 IST",
-  },
-  nakshatra: {
-    name: "Uttara Phalguni",
-    ruler: "Sun",
-    endTime: "18:45 IST",
-  },
-  yoga: "Siddha",
-  karana: "Baalav",
-  rahuKaal: {
-    start: "16:30",
-    end: "18:00",
-  },
-  sunrise: "06:02",
-  sunset: "18:34",
-  moonrise: "09:15",
-  festivals: ["Ganesh Chaturthi approaching in 3 days"],
-  interpretation:
-    "Chaturthi is auspicious for Ganesha worship and new beginnings. Focus on patience and completing pending work.",
-};
-
-const mockAstro: AstroBriefData = {
-  rashi: "Karka",
-  rashiName: "Cancer",
-  rashiNameHi: "कर्क",
-  rulingPlanet: "Moon",
-  brief:
-    "Today the Moon strengthens your intuition. Trust the quiet voice within when making decisions.",
-  luckyColor: "Cream / White",
-  luckyNumber: 2,
-  advice: "Spend 5 minutes in reflection before your first meeting today.",
-};
-
-const mockQuote: WisdomQuoteData = {
-  text: "You have a right to perform your prescribed duties, but you are not entitled to the fruits of your actions.",
-  source: "Bhagavad Gita 2.47",
-  context:
-    "Focus on doing your best work today and release attachment to external outcomes.",
-};
-
-/* Custom Illustrated Category SVGs matching stitch design */
-const WorkCareerIconSVG = () => (
-  <svg viewBox="0 0 64 64" className="w-12 h-12">
-    <rect x="12" y="24" width="40" height="28" rx="6" fill="#F3E5D8" stroke="#7A3315" strokeWidth="2.5" />
-    <path d="M24 24 V18 Q24 12 32 12 Q40 12 40 18 V24" fill="none" stroke="#7A3315" strokeWidth="2.5" strokeLinecap="round" />
-    <circle cx="32" cy="38" r="7" fill="#E0A737" stroke="#7A3315" strokeWidth="2" />
-    <path d="M32 31 V45 M25 38 H39" stroke="#7A3315" strokeWidth="2" />
-  </svg>
-);
-
-const InnerPeaceIconSVG = () => (
-  <svg viewBox="0 0 64 64" className="w-12 h-12">
-    <path d="M32 16 Q38 28 32 40 Q26 28 32 16 Z" fill="#E89B93" stroke="#7A3315" strokeWidth="2" />
-    <path d="M20 28 Q30 32 32 40 Q22 42 20 28 Z" fill="#F4C5C0" stroke="#7A3315" strokeWidth="2" />
-    <path d="M44 28 Q34 32 32 40 Q42 42 44 28 Z" fill="#F4C5C0" stroke="#7A3315" strokeWidth="2" />
-    <path d="M12 38 Q26 38 32 40 Q18 48 12 38 Z" fill="#E89B93" stroke="#7A3315" strokeWidth="2" />
-    <path d="M52 38 Q38 38 32 40 Q46 48 52 38 Z" fill="#E89B93" stroke="#7A3315" strokeWidth="2" />
-  </svg>
-);
-
-const RelationshipsIconSVG = () => (
-  <svg viewBox="0 0 64 64" className="w-12 h-12">
-    <path d="M32 18 Q28 10 20 16 Q14 22 32 36 Q50 22 44 16 Q36 10 32 18 Z" fill="#D65A48" stroke="#7A3315" strokeWidth="2" />
-    <path d="M14 42 L26 32 L36 38 L50 28" fill="none" stroke="#7A3315" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const LifeDecisionsIconSVG = () => (
-  <svg viewBox="0 0 64 64" className="w-12 h-12">
-    <line x1="32" y1="12" x2="32" y2="48" stroke="#7A3315" strokeWidth="3" strokeLinecap="round" />
-    <line x1="16" y1="20" x2="48" y2="20" stroke="#7A3315" strokeWidth="3" strokeLinecap="round" />
-    <path d="M16 20 L8 36 Q16 42 24 36 Z" fill="#EFCB86" stroke="#7A3315" strokeWidth="2" />
-    <path d="M48 20 L40 36 Q48 42 56 36 Z" fill="#EFCB86" stroke="#7A3315" strokeWidth="2" />
-  </svg>
-);
-
-const DailyDevotionIconSVG = () => (
-  <svg viewBox="0 0 64 64" className="w-12 h-12">
-    <path d="M22 42 Q32 54 42 42 Q36 44 32 44 Q28 44 22 42 Z" fill="#A84E29" stroke="#7A3315" strokeWidth="2" />
-    <path d="M32 24 Q36 34 32 40 Q28 34 32 24 Z" fill="#FF7A00" stroke="#7A3315" strokeWidth="1.5" />
-    <text x="32" y="20" textAnchor="middle" fill="#7A3315" fontSize="16" fontWeight="bold" fontFamily="serif">ॐ</text>
-  </svg>
-);
-
-const HealthWellbeingIconSVG = () => (
-  <svg viewBox="0 0 64 64" className="w-12 h-12">
-    <circle cx="32" cy="18" r="6" fill="#F3E5D8" stroke="#7A3315" strokeWidth="2" />
-    <path d="M18 42 C24 30 40 30 46 42" fill="none" stroke="#7A3315" strokeWidth="2.5" strokeLinecap="round" />
-    <path d="M14 26 Q18 20 22 28 Q18 36 14 26 Z" fill="#78A55A" stroke="#7A3315" strokeWidth="1.5" />
-    <path d="M50 26 Q46 20 42 28 Q46 36 50 26 Z" fill="#78A55A" stroke="#7A3315" strokeWidth="1.5" />
-  </svg>
-);
 
 export const HomePage: React.FC<HomePageProps> = ({
   profile,
   onNavigateToChat,
-  onNavigateToShrine,
-  onOpenVoice,
+  onUpdateProfile,
+  onResetOnboarding,
+  initialSubTab = "daily",
 }) => {
-  const greetingName = profile.name.trim() || "Friend";
+  const [subTab, setSubTab] = useState<"daily" | "profile">(initialSubTab);
+  const [editing, setEditing] = useState(false);
+  const [formData, setFormData] = useState<UserProfile>(profile);
+  const [isWisdomModalOpen, setIsWisdomModalOpen] = useState(false);
 
-  const concernCards = [
-    { title: "Work & Career", SVG: WorkCareerIconSVG, prompt: "I'm feeling stressed about a work decision." },
-    { title: "Inner Peace", SVG: InnerPeaceIconSVG, prompt: "How can I find calm and mental quiet right now?" },
-    { title: "Relationships", SVG: RelationshipsIconSVG, prompt: "How should I approach a difficult conversation with family?" },
-    { title: "Life Decisions", SVG: LifeDecisionsIconSVG, prompt: "What wisdom helps when facing major choices?" },
-    { title: "Daily Devotion", SVG: DailyDevotionIconSVG, prompt: "Suggest a simple daily practice for my schedule." },
-    { title: "Health & Wellbeing", SVG: HealthWellbeingIconSVG, prompt: "How can I balance physical effort and spiritual rest?" },
+  const userName = profile.name ? profile.name.trim() : "Vishal";
+  const userInitial = userName.charAt(0).toUpperCase() || "V";
+  const userRashi = profile.rashi || "Karka (Cancer)";
+  const ishtDevta = profile.ishtDevta || "Shiva";
+
+  const discussionTopics = [
+    "Managing anxiety during exams",
+    "Finding purpose in early career",
+    "Coping with family conflict",
+    "Building a daily spiritual routine",
+    "Dealing with loss and grief",
   ];
 
+  const handleSaveProfile = () => {
+    if (onUpdateProfile) {
+      onUpdateProfile(formData);
+    }
+    setEditing(false);
+  };
+
   return (
-    <div className="w-full min-h-[calc(100vh-3.25rem)] bg-[#FDFBF7] text-[#362A22] flex flex-col font-sans pb-16 no-scrollbar overflow-y-auto">
-      
-      {/* TOP HERO GRADIENT BANNER */}
-      <div className="w-full bg-gradient-to-r from-[#1D2942] via-[#482537] to-[#B4392B] pt-8 sm:pt-12 pb-28 sm:pb-32 px-4 sm:px-8 lg:px-16 text-[#FFFDF9] relative shadow-md">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
-          
-          {/* Left Text Content */}
-          <div className="flex flex-col gap-2 max-w-xl">
-            <h1 className="font-serif text-[32px] sm:text-[44px] font-normal leading-tight tracking-wide">
-              Namaste, {greetingName}.
-            </h1>
-            <p className="text-[14px] sm:text-[16px] text-[#FBF3E6]/90 leading-relaxed font-sans">
-              Sakha is here with you today under the grace of {profile.ishtDevta || "Shiva"}. What brings you to your quiet space right now?
-            </p>
-          </div>
+    <div className="w-full min-h-screen text-[#F5F5F5] flex flex-col relative select-none">
+      {/* ═══════════════ MAIN VERTICAL SCROLL CONTAINER ═══════════════ */}
+      <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col overflow-y-auto no-scrollbar scroll-smooth pb-32 sm:pb-36 md:pb-16">
+        {/* 1. Profile Header Area (Safe-Area Aware) */}
+        <header className="pt-6 sm:pt-8 px-[18px] sm:px-6 shrink-0 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            {/* 56 × 56px Warm Saffron/Orange Avatar */}
+            <div
+              className="w-14 h-14 rounded-full bg-gradient-to-br from-[#D9A441] to-[#E8722A] flex items-center justify-center text-[#0A0A0A] font-serif-fraunces font-bold text-2xl shrink-0 shadow-[0_2px_16px_rgba(217,164,65,0.22)] border border-white/10"
+              title={`Devotee ${userName}`}
+            >
+              <span className="leading-none select-none">{userInitial}</span>
+            </div>
 
-          {/* Right Action Pill Buttons */}
-          <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
-            {onOpenVoice && (
-              <button
-                type="button"
-                onClick={onOpenVoice}
-                className="bg-[#EFCB86]/20 hover:bg-[#EFCB86]/30 text-[#FFFDF9] border border-[#EFCB86]/60 px-5 py-2.5 rounded-full text-[13px] font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer active:scale-98"
+            {/* Profile Greeting, Devotee Badge, and Prominent Name */}
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-[13.5px] text-[#9A9A9A] font-medium leading-none">
+                  Namaste
+                </span>
+                <span className="text-[12px] px-2.5 py-0.5 rounded-full bg-[#D9A441]/10 border border-[#D9A441]/35 text-[#D9A441] font-medium tracking-wide">
+                  Devotee of {ishtDevta}
+                </span>
+              </div>
+              <h1 className="font-serif-fraunces text-[28px] sm:text-[30px] font-semibold text-[#F5F5F5] mt-1 leading-tight truncate">
+                {userName}
+              </h1>
+            </div>
+          </div>
+        </header>
+
+        {/* 2. Profile Sub-Tabs: Height 50px, Radius 25px, 4px Padding */}
+        <div className="mt-5 px-[18px] sm:px-6 shrink-0 max-w-md">
+          <div className="h-[50px] w-full bg-[#151515] border border-[#252525] rounded-[25px] p-1 flex items-center shadow-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setSubTab("daily");
+                setEditing(false);
+              }}
+              className={`flex-1 h-full rounded-full text-[13px] sm:text-[14px] font-medium transition-all duration-150 flex items-center justify-center cursor-pointer ${
+                subTab === "daily"
+                  ? "bg-[#D9A441] text-[#0A0A0A] font-semibold shadow-xs"
+                  : "text-[#9A9A9A] hover:text-[#F5F5F5] hover:bg-[#1C1C1C]"
+              }`}
+            >
+              Daily Reflection
+            </button>
+            <button
+              type="button"
+              onClick={() => setSubTab("profile")}
+              className={`flex-1 h-full rounded-full text-[13px] sm:text-[14px] font-medium transition-all duration-150 flex items-center justify-center cursor-pointer ${
+                subTab === "profile"
+                  ? "bg-[#D9A441] text-[#0A0A0A] font-semibold shadow-xs"
+                  : "text-[#9A9A9A] hover:text-[#F5F5F5] hover:bg-[#1C1C1C]"
+              }`}
+            >
+              Spiritual Profile
+            </button>
+          </div>
+        </div>
+
+        {/* 3. Subtle Content Divider (24px Top & Bottom Spacing) */}
+        <div className="mt-6 px-[18px] sm:px-6 shrink-0">
+          <div className="w-full border-t border-[#252525]/60" />
+        </div>
+
+        {/* ═══════════════ TAB 1: DAILY REFLECTION ═══════════════ */}
+        {subTab === "daily" && (
+          <div className="mt-6 px-[18px] sm:px-6 grid grid-cols-1 md:grid-cols-12 gap-5 lg:gap-6 items-start animate-fadein">
+            {/* Left 7 Columns on Desktop: Hero Cards */}
+            <div className="md:col-span-7 flex flex-col gap-5">
+              {/* 1. Daily Wisdom Hero Card */}
+              <article
+                onClick={() => setIsWisdomModalOpen(true)}
+                className="w-full rounded-[18px] bg-[#151515] border border-[#252525] border-l-[3.5px] border-l-[#D9A441] p-6 cursor-pointer transition-all duration-150 active:scale-[0.98] hover:border-[#D9A441]/40 shadow-xs group relative overflow-hidden"
               >
-                <svg className="w-4 h-4 text-[#EFCB86]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                  <line x1="12" y1="19" x2="12" y2="23"/>
-                  <line x1="8" y1="23" x2="16" y2="23"/>
-                </svg>
-                <span>Voice Sakha</span>
-              </button>
+                <blockquote className="font-serif-fraunces text-[17px] sm:text-[18px] italic font-semibold leading-[26px] text-[#F5F5F5] mb-4">
+                  &quot;You have the right to work, but never to the fruit of work.&quot;
+                </blockquote>
+
+                {/* Responsive Metadata Row: Left & Right with safe mobile wrapping */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-[12.5px] pt-1">
+                  <span className="font-semibold text-[#D9A441]">
+                    Bhagavad Gita 2.47 — Daily Wisdom
+                  </span>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-[#888888] sm:text-right">
+                    KARMA YOGA
+                  </span>
+                </div>
+              </article>
+
+              {/* 2. Today's Astro Guidance Card */}
+              <article className="w-full rounded-[18px] bg-[#151515] border border-[#252525] hover:border-[#D9A441]/40 p-[22px] relative overflow-hidden shadow-xs transition-colors duration-200">
+                {/* Intentional, Soft Upper-Right Radial Gold Glow */}
+                <div
+                  className="absolute -right-8 -top-8 w-44 h-44 rounded-full pointer-events-none opacity-70"
+                  style={{
+                    background:
+                      "radial-gradient(circle at 100% 0%, rgba(217,164,65,0.14) 0%, rgba(217,164,65,0.04) 50%, transparent 75%)",
+                  }}
+                />
+
+                {/* Category */}
+                <div className="text-[12px] font-semibold tracking-[0.5px] uppercase text-[#D9A441] mb-2">
+                  TODAY&apos;S ASTRO GUIDANCE
+                </div>
+
+                {/* Zodiac Title (22-24px Serif Semibold) */}
+                <h2 className="font-serif-fraunces text-[22px] sm:text-[24px] font-semibold text-[#F5F5F5] mb-3 leading-snug">
+                  {userRashi}
+                </h2>
+
+                {/* Astro Description (15px, 22-23px line-height) */}
+                <p className="text-[15px] text-[#A0A0A0] leading-[22.5px] mb-4 font-normal">
+                  A day for quiet reflection. Avoid major impulsive decisions during Rahu Kaal (4:30–6:00pm). Evening hours are especially auspicious for {ishtDevta} worship.
+                </p>
+
+                {/* Responsive Metadata Row: Inline on desktop, graceful stacking on narrow screens */}
+                <div className="pt-3.5 border-t border-[#252525] flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-[12.5px]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#7A7A7A]">Lucky Color:</span>
+                    <span className="text-[#F5F5F5] font-semibold">Cream / White</span>
+                  </div>
+                  <span className="hidden sm:inline text-[#444444]">·</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#7A7A7A]">Ruling Planet:</span>
+                    <span className="text-[#F5F5F5] font-semibold">Moon</span>
+                  </div>
+                </div>
+              </article>
+
+              {/* 3. Vedic Panchang Card (P0 Bug Fix: Never hidden, completely scrollable) */}
+              <article className="w-full rounded-[18px] bg-[#151515] border border-[#252525] hover:border-[#D9A441]/40 p-5 sm:p-6 shadow-xs transition-colors duration-200">
+                {/* Panchang Header */}
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[12px] font-semibold tracking-wider uppercase text-[#D9A441]">
+                    VEDIC PANCHANG
+                  </span>
+                  <span className="text-[12.5px] text-[#888888] font-medium">
+                    Ravivaar
+                  </span>
+                </div>
+
+                {/* Main Tithi Title */}
+                <h2 className="font-serif-fraunces text-[22px] sm:text-[24px] font-semibold text-[#F5F5F5] mb-4">
+                  Trayodashi
+                </h2>
+
+                {/* Panchang Metrics Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+                  <div className="bg-[#1C1C1C] border border-[#252525] rounded-[14px] p-3">
+                    <div className="text-[10.5px] uppercase tracking-wider text-[#7A7A7A] mb-1 font-medium">
+                      Nakshatra
+                    </div>
+                    <div className="text-[14px] font-semibold text-[#F5F5F5]">
+                      Rohini
+                    </div>
+                  </div>
+
+                  <div className="bg-[#1C1C1C] border border-[#252525] rounded-[14px] p-3">
+                    <div className="text-[10.5px] uppercase tracking-wider text-[#7A7A7A] mb-1 font-medium">
+                      Rahu Kaal
+                    </div>
+                    <div className="text-[14px] font-semibold text-[#E8722A]">
+                      4:30–6:00 PM
+                    </div>
+                  </div>
+
+                  <div className="bg-[#1C1C1C] border border-[#252525] rounded-[14px] p-3">
+                    <div className="text-[10.5px] uppercase tracking-wider text-[#7A7A7A] mb-1 font-medium">
+                      Sunrise
+                    </div>
+                    <div className="text-[14px] font-semibold text-[#F5F5F5]">
+                      5:58 AM
+                    </div>
+                  </div>
+
+                  <div className="bg-[#1C1C1C] border border-[#252525] rounded-[14px] p-3">
+                    <div className="text-[10.5px] uppercase tracking-wider text-[#7A7A7A] mb-1 font-medium">
+                      Sunset
+                    </div>
+                    <div className="text-[14px] font-semibold text-[#F5F5F5]">
+                      6:42 PM
+                    </div>
+                  </div>
+
+                  <div className="bg-[#1C1C1C] border border-[#252525] rounded-[14px] p-3">
+                    <div className="text-[10.5px] uppercase tracking-wider text-[#7A7A7A] mb-1 font-medium">
+                      Abhijit Muhurta
+                    </div>
+                    <div className="text-[14px] font-semibold text-[#D9A441]">
+                      11:48 AM–12:38 PM
+                    </div>
+                  </div>
+
+                  <div className="bg-[#1C1C1C] border border-[#252525] rounded-[14px] p-3">
+                    <div className="text-[10.5px] uppercase tracking-wider text-[#7A7A7A] mb-1 font-medium">
+                      Moon Sign
+                    </div>
+                    <div className="text-[14px] font-semibold text-[#F5F5F5]">
+                      Vrishabha (Taurus)
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            {/* Right 5 Columns on Desktop: Discuss with Sakha & Practice Overview */}
+            <div className="md:col-span-5 flex flex-col gap-5">
+              {/* One-Tap Spiritual Counsel with Sakha */}
+              <div className="bg-[#151515] border border-[#252525] rounded-[20px] p-5 shadow-xs flex flex-col gap-3.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] font-semibold tracking-wider uppercase text-[#D9A441]">
+                    DISCUSS WITH SAKHA
+                  </span>
+                  <span className="text-[11.5px] text-[#7A7A7A]">
+                    One-tap counsel
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {discussionTopics.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => onNavigateToChat(t)}
+                      className="w-full bg-[#1C1C1C] hover:bg-[#222222] border border-[#252525] hover:border-[#D9A441]/40 rounded-[14px] px-4 py-3 flex items-center justify-between text-left cursor-pointer transition-all duration-150 active:scale-[0.99] group shadow-xs"
+                    >
+                      <span className="text-[13.5px] text-[#F5F5F5] group-hover:text-[#D9A441] transition-colors font-medium">
+                        {t}
+                      </span>
+                      <span className="text-[#666666] group-hover:text-[#D9A441] text-sm group-hover:translate-x-1 transition-all">
+                        →
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sadhana Practice Highlight Card */}
+              <div className="bg-[#151515] border border-[#252525] rounded-[20px] p-5 shadow-xs flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] font-semibold tracking-wider uppercase text-[#D9A441]">
+                    DAILY SADHANA
+                  </span>
+                  <span className="text-[11.5px] text-[#7A7A7A]">
+                    Today&apos;s Rhythm
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2.5 text-center">
+                  <div className="bg-[#1C1C1C] border border-[#252525] rounded-[12px] p-2.5">
+                    <div className="font-serif-fraunces text-xl font-bold text-[#D9A441]">7</div>
+                    <div className="text-[10px] uppercase text-[#7A7A7A] mt-0.5">Day Streak</div>
+                  </div>
+                  <div className="bg-[#1C1C1C] border border-[#252525] rounded-[12px] p-2.5">
+                    <div className="font-serif-fraunces text-xl font-bold text-[#F5F5F5]">140</div>
+                    <div className="text-[10px] uppercase text-[#7A7A7A] mt-0.5">Mins Dhyan</div>
+                  </div>
+                  <div className="bg-[#1C1C1C] border border-[#252525] rounded-[12px] p-2.5">
+                    <div className="font-serif-fraunces text-xl font-bold text-[#F5F5F5]">12</div>
+                    <div className="text-[10px] uppercase text-[#7A7A7A] mt-0.5">Verses Read</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════ TAB 2: SPIRITUAL PROFILE ═══════════════ */}
+        {subTab === "profile" && (
+          <div className="mt-6 px-[18px] sm:px-6 flex flex-col gap-5 animate-fadein">
+            {editing ? (
+              /* Inline Edit Form */
+              <div className="bg-[#151515] border border-[#252525] rounded-[20px] p-6 shadow-xs">
+                <div className="flex items-center justify-between border-b border-[#252525] pb-3 mb-5">
+                  <h2 className="font-serif-fraunces text-lg text-[#F5F5F5] font-semibold">
+                    Edit Spiritual Profile
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(false)}
+                    className="text-xs text-[#9A9A9A] hover:text-[#F5F5F5] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs mb-5">
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase text-[#7A7A7A] mb-1.5 block">
+                      Your Name
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full border border-[#252525] bg-[#0A0A0A] rounded-xl p-3 text-xs text-[#F5F5F5] outline-none focus:border-[#D9A441]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase text-[#7A7A7A] mb-1.5 block">
+                      Date of Birth
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.dateOfBirth || ""}
+                      onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                      className="w-full border border-[#252525] bg-[#0A0A0A] rounded-xl p-3 text-xs text-[#F5F5F5] outline-none focus:border-[#D9A441] [color-scheme:dark]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase text-[#7A7A7A] mb-1.5 block">
+                      Isht Devta (Chosen Deity)
+                    </label>
+                    <select
+                      value={formData.ishtDevta}
+                      onChange={(e) => setFormData({ ...formData, ishtDevta: e.target.value })}
+                      className="w-full border border-[#252525] bg-[#0A0A0A] rounded-xl p-3 text-xs text-[#F5F5F5] outline-none focus:border-[#D9A441]"
+                    >
+                      {["Shiva", "Vishnu", "Devi", "Ganesha", "Krishna", "Hanuman", "Still discovering"].map((d) => (
+                        <option key={d} value={d} className="bg-[#151515] text-[#F5F5F5]">
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase text-[#7A7A7A] mb-1.5 block">
+                      Preferred Language
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.language}
+                      onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+                      className="w-full border border-[#252525] bg-[#0A0A0A] rounded-xl p-3 text-xs text-[#F5F5F5] outline-none focus:border-[#D9A441]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase text-[#7A7A7A] mb-1.5 block">
+                      Life Chapter
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.lifeChapter}
+                      onChange={(e) => setFormData({ ...formData, lifeChapter: e.target.value })}
+                      className="w-full border border-[#252525] bg-[#0A0A0A] rounded-xl p-3 text-xs text-[#F5F5F5] outline-none focus:border-[#D9A441]"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSaveProfile}
+                  className="bg-[#D9A441] text-[#0A0A0A] font-bold py-2.5 px-6 rounded-xl text-xs hover:bg-[#C29235] transition-all cursor-pointer shadow-xs"
+                >
+                  Save Profile Changes
+                </button>
+              </div>
+            ) : (
+              /* Profile Details View */
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* 1. Spiritual Identity Card */}
+                <div className="bg-[#151515] border border-[#252525] rounded-[20px] p-5 sm:p-6 flex flex-col gap-3 shadow-xs">
+                  <div className="flex items-center justify-between border-b border-[#252525] pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="devanagari-font text-base text-[#D9A441]">ॐ</span>
+                      <span className="text-[12px] font-semibold uppercase text-[#D9A441] tracking-wider">
+                        Spiritual Identity
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditing(true)}
+                      className="text-xs text-[#D9A441] hover:underline cursor-pointer font-medium"
+                    >
+                      Edit
+                    </button>
+                  </div>
+
+                  {profile.dateOfBirth && (
+                    <div className="flex justify-between items-center text-[13px] py-2 border-b border-[#202020]">
+                      <span className="text-[#888888]">Date of Birth</span>
+                      <span className="font-semibold text-[#F5F5F5]">{profile.dateOfBirth}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center text-[13px] py-2 border-b border-[#202020]">
+                    <span className="text-[#888888]">Chosen Isht Devta</span>
+                    <span className="font-semibold text-[#F5F5F5]">{profile.ishtDevta || "Shiva"}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[13px] py-2 border-b border-[#202020]">
+                    <span className="text-[#888888]">Faith Level</span>
+                    <span className="font-semibold text-[#F5F5F5]">{profile.faithLevel || "Devoted"}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[13px] py-2 border-b border-[#202020]">
+                    <span className="text-[#888888]">Tradition</span>
+                    <span className="font-semibold text-[#F5F5F5]">{profile.tradition || "Sanatan Dharma"}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[13px] py-2">
+                    <span className="text-[#888888]">Vedic Rashi</span>
+                    <span className="font-semibold text-[#F5F5F5]">{profile.rashi || "Karka (Cancer)"}</span>
+                  </div>
+                </div>
+
+                {/* 2. Sadhana & Daily Practice Stats */}
+                <div className="bg-[#151515] border border-[#252525] rounded-[20px] p-5 sm:p-6 shadow-xs">
+                  <div className="text-[12px] font-semibold uppercase tracking-wider text-[#D9A441] mb-3">
+                    PRACTICE & SADHANA
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="bg-[#1C1C1C] border border-[#252525] rounded-[14px] p-3">
+                      <div className="font-serif-fraunces text-2xl font-bold text-[#D9A441]">
+                        7
+                      </div>
+                      <div className="text-[10.5px] uppercase tracking-wider text-[#7A7A7A] mt-0.5">
+                        Day Streak
+                      </div>
+                    </div>
+                    <div className="bg-[#1C1C1C] border border-[#252525] rounded-[14px] p-3">
+                      <div className="font-serif-fraunces text-2xl font-bold text-[#F5F5F5]">
+                        140
+                      </div>
+                      <div className="text-[10.5px] uppercase tracking-wider text-[#7A7A7A] mt-0.5">
+                        Mins Dhyan
+                      </div>
+                    </div>
+                    <div className="bg-[#1C1C1C] border border-[#252525] rounded-[14px] p-3">
+                      <div className="font-serif-fraunces text-2xl font-bold text-[#F5F5F5]">
+                        12
+                      </div>
+                      <div className="text-[10.5px] uppercase tracking-wider text-[#7A7A7A] mt-0.5">
+                        Verses Read
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Daily Rhythm & Life Chapter Card */}
+                <div className="bg-[#151515] border border-[#252525] rounded-[20px] p-5 sm:p-6 flex flex-col gap-3 shadow-xs">
+                  <div className="text-[12px] font-semibold uppercase tracking-wider text-[#D9A441] mb-1">
+                    DAILY RHYTHM & LIFE CHAPTER
+                  </div>
+
+                  <div className="flex justify-between items-center text-[13px] py-2 border-b border-[#202020]">
+                    <span className="text-[#888888]">Life Chapter</span>
+                    <span className="font-semibold text-[#F5F5F5]">{profile.lifeChapter || "Student"}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[13px] py-2 border-b border-[#202020]">
+                    <span className="text-[#888888]">Grounding Time</span>
+                    <span className="font-semibold text-[#F5F5F5]">{profile.groundingTime || "Sunrise"}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[13px] py-2 border-b border-[#202020]">
+                    <span className="text-[#888888]">Practice Frequency</span>
+                    <span className="font-semibold text-[#F5F5F5]">{profile.practiceFrequency || "A few times a week"}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[13px] py-2">
+                    <span className="text-[#888888]">Inner Season</span>
+                    <span className="font-semibold text-[#F5F5F5]">{profile.innerSeason || "Peaceful"}</span>
+                  </div>
+                </div>
+
+                {/* 4. Retake Discovery Onboarding Action */}
+                <div className="md:col-span-2 bg-[#151515] border border-[#252525] rounded-[20px] p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
+                  <div>
+                    <div className="text-[14px] font-semibold text-[#F5F5F5]">
+                      Spiritual Discovery Journey
+                    </div>
+                    <div className="text-[12px] text-[#7A7A7A] mt-0.5">
+                      Retake the guided discovery questions to refresh your persona and guidance.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onResetOnboarding}
+                    className="w-full sm:w-auto bg-[#1C1C1C] hover:bg-[#252525] border border-[#D9A441]/40 text-[#D9A441] px-5 py-2.5 rounded-xl text-xs font-semibold cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"
+                  >
+                    <span>Retake Onboarding</span>
+                    <span>🔄</span>
+                  </button>
+                </div>
+              </div>
             )}
-            <button
-              type="button"
-              onClick={onNavigateToShrine}
-              className="bg-[#EFCB86]/20 hover:bg-[#EFCB86]/30 text-[#FFFDF9] border border-[#EFCB86]/60 px-5 py-2.5 rounded-full text-[13px] font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer active:scale-98"
-            >
-              <span>🏠 Open Shrine</span>
-            </button>
           </div>
-
-        </div>
+        )}
       </div>
 
-      {/* MAIN OVERLAPPING CONTENT CONTAINER */}
-      <div className="max-w-6xl mx-auto w-full px-4 sm:px-8 lg:px-16 -mt-20 sm:-mt-24 flex flex-col gap-10 z-20">
-        
-        {/* THREE OVERLAPPING CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-          
-          {/* PANCHANG CARD */}
-          <div className="bg-[#FFFDF9] border border-[rgba(54,42,34,0.12)] rounded-[24px] p-6 flex flex-col justify-between shadow-lg hover:shadow-xl transition-shadow">
-            <div>
-              <div className="flex justify-between items-center pb-3 border-b border-[rgba(54,42,34,0.1)] mb-3">
-                <span className="text-[10.5px] font-extrabold uppercase text-[#B4392B] tracking-wider">
-                  DAILY PANCHANG
-                </span>
-                <span className="text-[11.5px] font-medium text-[#6B5C4E]">
-                  {mockPanchang.day}
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-2 text-[13px]">
-                <div className="flex justify-between items-center">
-                  <span className="text-[#6B5C4E] font-medium">Tithi:</span>
-                  <span className="font-bold text-[#362A22]">{mockPanchang.tithi.name}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[#6B5C4E] font-medium">Nakshatra:</span>
-                  <span className="font-bold text-[#362A22]">{mockPanchang.nakshatra.name}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[#6B5C4E] font-medium">Rahu Kaal:</span>
-                  <span className="font-bold text-[#B4392B]">{mockPanchang.rahuKaal.start}–{mockPanchang.rahuKaal.end}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[#6B5C4E] font-medium">Sunrise / Sunset:</span>
-                  <span className="font-bold text-[#362A22]">{mockPanchang.sunrise} / {mockPanchang.sunset}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-[rgba(54,42,34,0.08)] text-[11.5px] text-[#362A22] bg-[#FBF3E6] p-3.5 rounded-[16px] leading-relaxed">
-              <span className="font-bold text-[#B4392B]">Sanatan Insight:</span> {mockPanchang.interpretation}
-            </div>
-          </div>
-
-          {/* ASTRO GUIDANCE CARD */}
-          <div className="bg-[#FFFDF9] border border-[rgba(54,42,34,0.12)] rounded-[24px] p-6 flex flex-col justify-between shadow-lg hover:shadow-xl transition-shadow">
-            <div>
-              <div className="flex justify-between items-center pb-3 border-b border-[rgba(54,42,34,0.1)] mb-3">
-                <span className="text-[10.5px] font-extrabold uppercase text-[#B4392B] tracking-wider">
-                  ASTRO GUIDANCE ({mockAstro.rashiNameHi})
-                </span>
-                <span className="text-[11px] font-bold bg-[#EFCB86] text-[#362A22] px-3 py-0.5 rounded-full shadow-2xs">
-                  {mockAstro.rashi}
-                </span>
-              </div>
-
-              <p className="text-[13px] text-[#362A22] font-medium leading-relaxed mb-3">
-                Today the Moon strengthens your intuition. Trust the quiet voice within when making decisions.
-              </p>
-
-              <div className="grid grid-cols-2 gap-2 text-[11.5px] mb-2">
-                <div className="bg-[#F5EFE6] p-2.5 rounded-[12px]">
-                  <span className="text-[#6B5C4E] block text-[9.5px] uppercase font-extrabold">LUCKY COLOR:</span>
-                  <span className="font-bold text-[#362A22]">{mockAstro.luckyColor}</span>
-                </div>
-                <div className="bg-[#F5EFE6] p-2.5 rounded-[12px]">
-                  <span className="text-[#6B5C4E] block text-[9.5px] uppercase font-extrabold">LUCKY NUMBER:</span>
-                  <span className="font-bold text-[#362A22]">{mockAstro.luckyNumber}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-[rgba(54,42,34,0.08)] text-[11.5px] text-[#362A22] font-medium bg-[#F5EFE6] p-3.5 rounded-[16px] leading-relaxed">
-              <span className="font-bold text-[#362A22]">Advice:</span> {mockAstro.advice}
-            </div>
-          </div>
-
-          {/* DAILY WISDOM CARD */}
-          <div className="bg-[#FFFDF9] border border-[rgba(54,42,34,0.12)] rounded-[24px] p-6 flex flex-col justify-between shadow-lg hover:shadow-xl transition-shadow">
-            <div>
-              <div className="flex justify-between items-center pb-3 border-b border-[rgba(54,42,34,0.1)] mb-3">
-                <span className="text-[10.5px] font-extrabold uppercase text-[#B4392B] tracking-wider">
-                  DAILY WISDOM
-                </span>
-                <span className="text-[12px] font-serif font-bold text-[#B4392B]">
-                  {mockQuote.source}
-                </span>
-              </div>
-
-              <blockquote className="font-serif text-[14px] text-[#362A22] font-bold leading-relaxed mb-3 border-l-4 border-[#B4392B] pl-3 py-0.5">
-                &ldquo;{mockQuote.text}&rdquo;
-              </blockquote>
-
-              <p className="text-[12px] text-[#6B5C4E] font-medium leading-relaxed">
-                {mockQuote.context}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => onNavigateToChat(`Explain the meaning of Bhagavad Gita verse: "${mockQuote.text}"`)}
-              className="mt-4 text-[13px] font-bold text-[#B4392B] hover:underline transition-all self-start flex items-center gap-1 cursor-pointer"
-            >
-              <span>Reflect with Sakha →</span>
-            </button>
-          </div>
-
-        </div>
-
-        {/* EXPLORE CATEGORIES SECTION */}
-        <div className="flex flex-col gap-4">
-          <h2 className="font-serif text-[22px] sm:text-[26px] font-normal text-[#362A22]">
-            What would you like to explore today?
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {concernCards.map((c) => (
+      {/* ═══════════════ WISDOM MODAL DIALOG ═══════════════ */}
+      {isWisdomModalOpen && (
+        <div
+          onClick={() => setIsWisdomModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadein"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg bg-[#151515] border border-[#252525] rounded-[24px] p-6 sm:p-7 shadow-2xl relative"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[12px] font-semibold uppercase tracking-wider text-[#D9A441]">
+                Bhagavad Gita 2.47
+              </span>
               <button
-                key={c.title}
                 type="button"
-                onClick={() => onNavigateToChat(c.prompt)}
-                className="bg-[#F5EFE6] hover:bg-[#FBF3E6] border border-[rgba(54,42,34,0.12)] rounded-[20px] p-5 flex flex-col items-center justify-center text-center gap-3 transition-all shadow-xs hover:shadow-md group cursor-pointer"
+                onClick={() => setIsWisdomModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-[#222222] text-[#9A9A9A] hover:text-[#F5F5F5] flex items-center justify-center text-xs transition-colors cursor-pointer"
               >
-                <div className="group-hover:scale-110 transition-transform">
-                  <c.SVG />
-                </div>
-                <span className="text-[13px] font-bold text-[#362A22] leading-snug">{c.title}</span>
+                ✕
               </button>
-            ))}
+            </div>
+
+            <div className="p-4 rounded-[16px] bg-[#1C1C1C] border border-[#252525] mb-4 text-center">
+              <p className="devanagari-font text-lg text-[#D9A441] leading-relaxed">
+                कर्मण्येवाधिकारस्ते मा फलेषु कदाचन।<br />
+                मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि॥
+              </p>
+            </div>
+
+            <blockquote className="font-serif-fraunces text-base italic text-[#F5F5F5] leading-relaxed mb-4">
+              &quot;You have a right to perform your prescribed duties, but you are not entitled to the fruits of your actions. Never consider yourself to be the cause of the results of your activities, nor be attached to inaction.&quot;
+            </blockquote>
+
+            <p className="text-[13.5px] text-[#A0A0A0] leading-relaxed mb-6">
+              This foundational verse of Karma Yoga teaches the art of selfless action. When we release anxiety about future rewards and dedicate our present actions with sincerity, the mind attains deep poise and freedom.
+            </p>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsWisdomModalOpen(false)}
+                className="px-5 py-2 rounded-full bg-[#D9A441] text-[#0A0A0A] text-xs font-semibold hover:bg-[#C29235] transition-all cursor-pointer shadow-xs"
+              >
+                Understood
+              </button>
+            </div>
           </div>
         </div>
-
-      </div>
-
-      {/* FLOATING CHATBOT ACTION BUTTON */}
-      <button
-        type="button"
-        onClick={() => onNavigateToChat()}
-        title="Chat with Sakha AI"
-        className="fixed bottom-20 md:bottom-8 right-5 md:right-8 bg-[#B4392B] hover:bg-[#8E2C21] text-[#FFFDF9] p-3.5 sm:px-5 sm:py-3 rounded-full shadow-2xl flex items-center gap-2 z-40 transition-all hover:scale-105 active:scale-95 cursor-pointer group border border-white/20"
-      >
-        <svg className="w-5 h-5 text-white group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-        <span className="hidden sm:inline text-[13px] font-bold tracking-wide">Talk with Sakha</span>
-      </button>
-
+      )}
     </div>
   );
 };

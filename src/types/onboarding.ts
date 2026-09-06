@@ -1,6 +1,7 @@
 export interface UserProfile {
   name: string;
   language: string;
+  dateOfBirth?: string;
   age: string;
   email: string;
   gender: string;
@@ -34,6 +35,7 @@ export interface UserProfile {
 export const initialProfile: UserProfile = {
   name: "",
   language: "Hindi",
+  dateOfBirth: "",
   age: "",
   email: "",
   gender: "Man",
