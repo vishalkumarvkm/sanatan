@@ -221,7 +221,7 @@ export const VoiceAssistantPanel: React.FC<VoiceAssistantPanelProps> = ({
         <div className="text-[13.5px] text-[#A8904D] leading-relaxed min-h-[44px]">
           {phase === "recognized"
             ? `“${userTranscript}”`
-            : sakhaSpeech}
+            : sakhaSpeech.replace(/\*['"](.*?)['"]\*/g, '"$1"').replace(/\*([^*]+)\*/g, '$1')}
         </div>
       </div>
 

@@ -90,9 +90,13 @@ export default function App() {
     try {
       const res = await submitOnboardingData(completedProfile);
       if (res.success && res.user_id) {
-        const personaRes = await fetchGeneratedPersona(res.user_id);
-        if (personaRes.success && personaRes.persona) {
-          const updated = { ...completedProfile, persona: personaRes.persona };
+        const fullProfileRes = await fetchGeneratedPersona(res.user_id);
+        if (fullProfileRes.success) {
+          const updated = { 
+            ...completedProfile, 
+            userId: res.user_id,
+            persona: fullProfileRes.persona 
+          };
           saveProfile(updated);
         }
       }
@@ -147,7 +151,7 @@ export default function App() {
         {/* Main Responsive Canvas */}
         <main
           className={`flex-1 flex flex-col w-full relative ${
-            activeTab === "onboarding" ? "h-[100dvh] max-h-[100dvh] overflow-hidden" : ""
+            activeTab === "onboarding" || activeTab === "splash" ? "h-[100dvh] max-h-[100dvh] overflow-hidden" : ""
           }`}
         >
           {activeTab === "splash" && (

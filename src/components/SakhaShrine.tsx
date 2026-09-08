@@ -19,6 +19,36 @@ interface Message {
   timestamp: string;
 }
 
+const renderFormattedMessage = (text: string, isSakha: boolean) => {
+  if (!text) return "";
+  
+  // Clean up weird raw combinations like *'text'* or * "text" * -> "text"
+  const sanitized = text
+    .replace(/\*['"](.*?)['"]\*/g, '"$1"')
+    .replace(/['"]\*(.*?)\*['"]/g, '"$1"');
+
+  // Split by **bold** or *italic*
+  const parts = sanitized.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={i} className={isSakha ? "font-semibold text-[#D9A441]" : "font-bold text-[#080808]"}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith("*") && part.endsWith("*")) {
+      return (
+        <em key={i} className={isSakha ? "italic font-medium text-[#D9A441]" : "italic font-medium"}>
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+    return part;
+  });
+};
+
 export const SakhaShrine: React.FC<SakhaShrineProps> = ({
   profile,
   onOpenVoice,
@@ -51,16 +81,7 @@ export const SakhaShrine: React.FC<SakhaShrineProps> = ({
     "Play a bhajan",
   ];
 
-  const cannedAnswers: Record<string, string> = {
-    "Show me the vidhi":
-      "Bathe and wear clean clothes. Place the Shivling facing north. Offer water, then milk in a thin stream while chanting Om Namah Shivaya. Place bel patra. Light a single diya and keep it through pradosh kaal.",
-    "Today's panchang":
-      "Today is Trayodashi, Sravana month, Rohini nakshatra. Rahu Kaal: 4:30–6:00pm. Avoid starting major new commitments during that window.",
-    "How to calm anxiety":
-      "Sit comfortably and take five slow, deep breaths. Chant Om three times from the naval. Remember Krishna's counsel in the Gita: you hold power over your effort, not the outcomes. Surrender the rest to the divine.",
-    "Play a bhajan":
-      "Opening the sacred shrine player with divine chants and stotrams for your reflection.",
-  };
+
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -99,29 +120,16 @@ export const SakhaShrine: React.FC<SakhaShrineProps> = ({
       }),
     };
 
+    const recentHistory = messages.slice(-6).map((m) => ({
+      sender: m.sender,
+      text: m.text,
+    }));
+
     setMessages((prev) => [...prev, userMsg]);
     setInputValue("");
 
-    if (cannedAnswers[userText]) {
-      setTimeout(() => {
-        const sakhaMsg: Message = {
-          id: `sakha-${Date.now()}-${Math.random()}`,
-          sender: "sakha",
-          text: cannedAnswers[userText],
-          timestamp: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        };
-        setMessages((prev) => [...prev, sakhaMsg]);
-        setIsTyping(false);
-        isSendingRef.current = false;
-      }, 700);
-      return;
-    }
-
     try {
-      const response = await generateSakhaResponse(userText, profile);
+      const response = await generateSakhaResponse(userText, profile, recentHistory);
       const sakhaMsg: Message = {
         id: `sakha-${Date.now()}-${Math.random()}`,
         sender: "sakha",
@@ -196,7 +204,9 @@ export const SakhaShrine: React.FC<SakhaShrineProps> = ({
                 : "self-end bg-[#D9A441] text-[#080808] font-medium border border-[#B58A3A] rounded-br-[5px]"
             }`}
           >
-            <div className="whitespace-pre-wrap">{m.text}</div>
+            <div className="whitespace-pre-wrap">
+              {renderFormattedMessage(m.text, m.sender === "sakha")}
+            </div>
             <span
               className={`text-[11px] self-end mt-0.5 select-none ${
                 m.sender === "sakha"

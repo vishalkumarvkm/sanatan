@@ -302,7 +302,8 @@ export const GyanPage: React.FC<GyanPageProps> = () => {
     setIsAnswering(true);
 
     try {
-      const res = await fetch("/api/sakha/chat", {
+      const chatEndpoint = process.env.NEXT_PUBLIC_SAKHA_CHAT_API_URL || "/api/sakha/chat";
+      const res = await fetch(chatEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

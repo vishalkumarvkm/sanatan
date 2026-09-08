@@ -2,6 +2,10 @@ export interface UserProfile {
   name: string;
   language: string;
   dateOfBirth?: string;
+  timeOfBirth?: string;
+  placeOfBirth?: string;
+  userId?: string;
+  accessToken?: string;
   age: string;
   email: string;
   gender: string;

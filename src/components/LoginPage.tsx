@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { sendOtp, verifyOtp } from "@/lib/api";
 
 interface LoginPageProps {
-  onLoginSuccess: (phone: string) => void;
+  onLoginSuccess: (phone: string, tokenData?: { userId?: string; accessToken?: string; isNewUser?: boolean }) => void;
   onExploreGuest: () => void;
 }
 
@@ -12,9 +13,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onExploreGuest,
 }) => {
   const [step, setStep] = useState<"phone" | "otp">("phone");
-  const [phoneNumber, setPhoneNumber] = useState("9876543210");
+  const [phoneNumber, setPhoneNumber] = useState("8084507988");
   const [otp, setOtp] = useState(["1", "2", "3", "4", "5", "6"]);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [timer, setTimer] = useState(45);
 
   useEffect(() => {
@@ -25,15 +28,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     return () => clearInterval(interval);
   }, [step, timer]);
 
-  const handleSendOtp = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phoneNumber || phoneNumber.length < 10) return;
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    setErrorMessage(null);
+    setInfoMessage(null);
+
+    const res = await sendOtp(phoneNumber);
+    setLoading(false);
+
+    if (res.success) {
       setStep("otp");
       setTimer(45);
-    }, 800);
+      if (res.dev_otp) {
+        setInfoMessage(`OTP sent! (Dev OTP: ${res.dev_otp})`);
+        setOtp(res.dev_otp.split(""));
+      } else {
+        setInfoMessage(res.message);
+      }
+    } else {
+      setErrorMessage(res.message);
+    }
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -49,15 +65,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     const fullOtp = otp.join("");
     if (fullOtp.length !== 6) return;
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      onLoginSuccess(`+91 ${phoneNumber}`);
-    }, 1000);
+    setErrorMessage(null);
+
+    const res = await verifyOtp(phoneNumber, fullOtp);
+    setLoading(false);
+
+    if (res.success) {
+      const formattedPhone = phoneNumber.startsWith("+") ? phoneNumber : `+91 ${phoneNumber}`;
+      onLoginSuccess(formattedPhone, {
+        userId: res.user_id,
+        accessToken: res.access_token,
+        isNewUser: res.is_new_user,
+      });
+    } else {
+      setErrorMessage(res.message || "Invalid OTP code. Please try again.");
+    }
   };
 
   return (
@@ -79,6 +106,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       {/* LOGIN CARD */}
       <div className="bg-[#FFFDF9] border border-[rgba(54,42,34,0.13)] rounded-[28px] max-w-md w-full p-6 sm:p-8 shadow-xl flex flex-col gap-5 animate-fade-in">
         
+        {errorMessage && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
+            {errorMessage}
+          </div>
+        )}
+
+        {infoMessage && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-medium">
+            {infoMessage}
+          </div>
+        )}
+
         {step === "phone" ? (
           <form onSubmit={handleSendOtp} className="flex flex-col gap-5">
             <div>
@@ -102,7 +141,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <input
                   type="tel"
                   maxLength={10}
-                  placeholder="98765 43210"
+                  placeholder="80845 07988"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   className="flex-1 border border-[rgba(54,42,34,0.15)] bg-[#FBF3E6] rounded-[16px] px-4 py-3 text-[14px] text-[#362A22] font-bold outline-none focus:border-[#B4392B] shadow-2xs"
@@ -114,7 +153,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <button
               type="submit"
               disabled={loading || phoneNumber.length < 10}
-              className="bg-[#B4392B] hover:bg-[#8E2C21] text-[#FFFDF9] py-3.5 rounded-[16px] font-bold text-[14px] transition-all shadow-md active:scale-98 disabled:opacity-50 mt-1"
+              className="bg-[#B4392B] hover:bg-[#8E2C21] text-[#FFFDF9] py-3.5 rounded-[16px] font-bold text-[14px] transition-all shadow-md active:scale-98 disabled:opacity-50 mt-1 cursor-pointer"
             >
               {loading ? "Sending Verification Code..." : "Get Verification Code →"}
             </button>
@@ -129,7 +168,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <button
                   type="button"
                   onClick={() => setStep("phone")}
-                  className="text-[12px] text-[#B4392B] font-bold hover:underline"
+                  className="text-[12px] text-[#B4392B] font-bold hover:underline cursor-pointer"
                 >
                   Edit Number
                 </button>
@@ -142,7 +181,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             {/* 6-Digit Box Input */}
             <div>
               <label className="text-[10.5px] font-extrabold uppercase text-[#6B5C4E] tracking-wider mb-2 block">
-                Verification Code (Demo: 123456)
+                Verification Code
               </label>
               <div className="flex items-center justify-between gap-1.5">
                 {otp.map((digit, idx) => (
@@ -166,8 +205,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               ) : (
                 <button
                   type="button"
-                  onClick={() => setTimer(45)}
-                  className="font-bold text-[#B4392B] hover:underline"
+                  onClick={handleSendOtp}
+                  className="font-bold text-[#B4392B] hover:underline cursor-pointer"
                 >
                   Resend OTP Now
                 </button>
@@ -177,7 +216,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="bg-[#B4392B] hover:bg-[#8E2C21] text-[#FFFDF9] py-3.5 rounded-[16px] font-bold text-[14px] transition-all shadow-md active:scale-98 disabled:opacity-50 mt-1"
+              className="bg-[#B4392B] hover:bg-[#8E2C21] text-[#FFFDF9] py-3.5 rounded-[16px] font-bold text-[14px] transition-all shadow-md active:scale-98 disabled:opacity-50 mt-1 cursor-pointer"
             >
               {loading ? "Verifying..." : "Verify & Sign In"}
             </button>
@@ -188,7 +227,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           <button
             type="button"
             onClick={onExploreGuest}
-            className="text-[13px] font-bold text-[#362A22] hover:text-[#B4392B] transition-colors"
+            className="text-[13px] font-bold text-[#362A22] hover:text-[#B4392B] transition-colors cursor-pointer"
           >
             Continue as Guest / Explore Shrine →
           </button>
