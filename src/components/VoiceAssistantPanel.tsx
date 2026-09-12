@@ -57,13 +57,15 @@ export const VoiceAssistantPanel: React.FC<VoiceAssistantPanelProps> = ({
             .join("");
           if (transcriptText) {
             setUserTranscript(transcriptText);
+            recognitionTranscriptRef.current = transcriptText;
             setPhase("recognized");
           }
         };
 
         recognition.onend = async () => {
-          if (userTranscript.trim()) {
-            await handleProcessVoiceQuery(userTranscript.trim());
+          const finalQuery = recognitionTranscriptRef.current.trim();
+          if (finalQuery) {
+            await handleProcessVoiceQuery(finalQuery);
           }
         };
 
@@ -77,6 +79,7 @@ export const VoiceAssistantPanel: React.FC<VoiceAssistantPanelProps> = ({
       const timer1 = setTimeout(() => {
         setPhase("recognized");
         setUserTranscript("What mantra helps with difficult decisions?");
+        recognitionTranscriptRef.current = "What mantra helps with difficult decisions?";
 
         const timer2 = setTimeout(() => {
           setPhase("thinking");
@@ -98,29 +101,61 @@ export const VoiceAssistantPanel: React.FC<VoiceAssistantPanelProps> = ({
     }
   }, [isOpen]);
 
+  const recognitionTranscriptRef = useRef("");
+
   const handleProcessVoiceQuery = async (query: string) => {
     setPhase("thinking");
     setSakhaSpeech("");
 
     try {
       const response = await generateSakhaResponse(query, profile);
+      
+      // Strip repetitive "Namaste" / "Namaste [Name]" unless user is explicitly greeting
+      const isGreeting = /^(hi|hello|hey|namaste|pranam|namaskaram|pranaam|good\s+(morning|evening|afternoon))\b/i.test(query.trim());
+      let cleanResponse = response;
+      if (!isGreeting) {
+        cleanResponse = cleanResponse.replace(/^(namaste|namaskar|pranam|pranaam|namaskaram)(\s+[\w]+)?([,\.!—\s\-]+)/i, "").trim();
+        if (cleanResponse.length > 0) {
+          cleanResponse = cleanResponse.charAt(0).toUpperCase() + cleanResponse.slice(1);
+        } else {
+          cleanResponse = response;
+        }
+      }
+
       setPhase("speaking");
-      setSakhaSpeech(response);
+      setSakhaSpeech(cleanResponse);
 
       if (onSendQuery) {
         onSendQuery(query);
       }
 
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        const utterance = new SpeechSynthesisUtterance(response);
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(cleanResponse);
         utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          const preferredVoice =
+            voices.find((v) => v.lang === "en-IN" || v.lang.startsWith("en-IN")) ||
+            voices.find((v) => v.name.includes("India") || v.name.includes("Hindi")) ||
+            voices.find((v) => v.lang.startsWith("en") && (v.name.includes("Natural") || v.name.includes("Neural"))) ||
+            voices.find((v) => v.lang.startsWith("en"));
+          if (preferredVoice) utterance.voice = preferredVoice;
+        }
+
+        utterance.onend = () => {
+          // Finished speaking
+        };
+
         window.speechSynthesis.speak(utterance);
       }
     } catch (err) {
       console.error("Voice assistant query processing error:", err);
       setPhase("speaking");
       setSakhaSpeech(
-        "Om Shanti. Keep your focus inward and trust the divine order."
+        "Keep your focus inward and trust the divine order."
       );
     }
   };

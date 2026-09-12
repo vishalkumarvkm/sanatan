@@ -1,7 +1,59 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { UserProfile } from "@/types/onboarding";
+
+export interface ArticleSentence {
+  id: string; // e.g. "title", "p0-s0"
+  paraIndex: number; // -1 for title
+  sentenceIndex: number;
+  text: string;
+}
+
+function parseArticleIntoSentences(article: GyanArticle): {
+  titleSegment: ArticleSentence;
+  paragraphs: ArticleSentence[][];
+  flatSentences: ArticleSentence[];
+} {
+  const titleSegment: ArticleSentence = {
+    id: "title",
+    paraIndex: -1,
+    sentenceIndex: 0,
+    text: article.title,
+  };
+
+  const paragraphs: ArticleSentence[][] = [];
+  const flatSentences: ArticleSentence[] = [titleSegment];
+
+  article.body.forEach((paraText, pIdx) => {
+    const rawLines = paraText.split(/\r?\n+/).filter((line) => line.trim().length > 0);
+    const paraSentences: ArticleSentence[] = [];
+
+    rawLines.forEach((line) => {
+      // Split on sentence boundaries, keeping punctuation
+      const sentenceRegex = /[^.!?\n]+(?:[.!?]+(?=["'\s]|$)|\s*$)/g;
+      const matched = line.match(sentenceRegex);
+      const parts = (matched && matched.length > 0 ? matched : [line])
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+      parts.forEach((part) => {
+        const item: ArticleSentence = {
+          id: `p${pIdx}-s${paraSentences.length}`,
+          paraIndex: pIdx,
+          sentenceIndex: paraSentences.length,
+          text: part,
+        };
+        paraSentences.push(item);
+        flatSentences.push(item);
+      });
+    });
+
+    paragraphs.push(paraSentences);
+  });
+
+  return { titleSegment, paragraphs, flatSentences };
+}
 
 interface GyanArticle {
   id: string;
@@ -226,7 +278,16 @@ export const GyanPage: React.FC<GyanPageProps> = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTopic, setSelectedTopic] = useState("All");
   const [activeArticle, setActiveArticle] = useState<GyanArticle | null>(null);
+  const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number>(-1);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [speechRate, setSpeechRate] = useState<number>(0.95);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  const currentSentenceIndexRef = useRef<number>(-1);
+  const isSpeakingRef = useRef<boolean>(false);
+  const speechRateRef = useRef<number>(0.95);
+
   const [articleQuery, setArticleQuery] = useState("");
   const [articleChatHistory, setArticleChatHistory] = useState<
     Array<{ sender: "user" | "sakha"; text: string }>
@@ -267,31 +328,196 @@ export const GyanPage: React.FC<GyanPageProps> = () => {
     }, 150);
   };
 
-  const toggleSpeech = () => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-
-    if (isSpeaking) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-    } else if (activeArticle) {
-      const textToSpeak = `${activeArticle.title}. ${activeArticle.body.join(" ")}`;
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.rate = 0.95;
-      utterance.pitch = 1.0;
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      window.speechSynthesis.speak(utterance);
-      setIsSpeaking(true);
-    }
-  };
+  useEffect(() => {
+    currentSentenceIndexRef.current = currentSentenceIndex;
+  }, [currentSentenceIndex]);
 
   useEffect(() => {
+    isSpeakingRef.current = isSpeaking;
+  }, [isSpeaking]);
+
+  useEffect(() => {
+    speechRateRef.current = speechRate;
+  }, [speechRate]);
+
+  // Load available speech synthesis voices
+  useEffect(() => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const updateVoices = () => {
+      try {
+        const v = window.speechSynthesis.getVoices();
+        if (v && v.length) setAvailableVoices(v);
+      } catch (e) {}
+    };
+    updateVoices();
+    window.speechSynthesis.onvoiceschanged = updateVoices;
     return () => {
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
+        window.speechSynthesis.onvoiceschanged = null;
       }
     };
+  }, []);
+
+  // Parse active article into structured reading segments
+  const parsedSentences = useMemo(() => {
+    if (!activeArticle) return { titleSegment: null, paragraphs: [], flatSentences: [] };
+    return parseArticleIntoSentences(activeArticle);
   }, [activeArticle]);
+
+  // Auto-scroll the currently reading sentence into view smoothly
+  useEffect(() => {
+    if (currentSentenceIndex < 0 || !parsedSentences.flatSentences[currentSentenceIndex]) return;
+    const segment = parsedSentences.flatSentences[currentSentenceIndex];
+    const elementId = segment.id === "title" ? "read-segment-title" : `read-segment-${segment.id}`;
+
+    requestAnimationFrame(() => {
+      const el = document.getElementById(elementId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+  }, [currentSentenceIndex, parsedSentences]);
+
+  const stopNarration = useCallback(() => {
+    isSpeakingRef.current = false;
+    currentSentenceIndexRef.current = -1;
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
+    }
+    setIsSpeaking(false);
+    setIsPaused(false);
+    setCurrentSentenceIndex(-1);
+  }, []);
+
+  const speakSentence = useCallback(
+    (index: number) => {
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+      const flat = parsedSentences.flatSentences;
+      if (!flat || index >= flat.length || index < 0) {
+        stopNarration();
+        return;
+      }
+
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
+
+      currentSentenceIndexRef.current = index;
+      setCurrentSentenceIndex(index);
+      isSpeakingRef.current = true;
+      setIsSpeaking(true);
+      setIsPaused(false);
+
+      const segment = flat[index];
+      const utterance = new SpeechSynthesisUtterance(segment.text);
+      utterance.rate = speechRateRef.current;
+      utterance.pitch = 1.0;
+
+      // Prioritize natural Indian English voice if present
+      if (availableVoices.length > 0) {
+        const preferred =
+          availableVoices.find((v) => v.lang === "en-IN" || v.lang.startsWith("en-IN")) ||
+          availableVoices.find((v) => v.name.includes("India") || v.name.includes("Hindi")) ||
+          availableVoices.find(
+            (v) =>
+              v.lang.startsWith("en") &&
+              (v.name.includes("Natural") || v.name.includes("Neural"))
+          ) ||
+          availableVoices.find((v) => v.lang.startsWith("en"));
+        if (preferred) utterance.voice = preferred;
+      }
+
+      utterance.onend = () => {
+        if (isSpeakingRef.current && currentSentenceIndexRef.current === index) {
+          if (index + 1 < flat.length) {
+            speakSentence(index + 1);
+          } else {
+            stopNarration();
+          }
+        }
+      };
+
+      utterance.onerror = (e: any) => {
+        if (e.error === "canceled" || e.error === "interrupted") return;
+        if (isSpeakingRef.current && currentSentenceIndexRef.current === index) {
+          if (index + 1 < flat.length) {
+            speakSentence(index + 1);
+          } else {
+            stopNarration();
+          }
+        }
+      };
+
+      window.speechSynthesis.speak(utterance);
+    },
+    [parsedSentences, availableVoices, stopNarration]
+  );
+
+  const pauseNarration = useCallback(() => {
+    isSpeakingRef.current = false;
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
+    }
+    setIsSpeaking(false);
+    setIsPaused(true);
+  }, []);
+
+  const resumeNarration = useCallback(() => {
+    const target = currentSentenceIndexRef.current >= 0 ? currentSentenceIndexRef.current : 0;
+    speakSentence(target);
+  }, [speakSentence]);
+
+  const toggleSpeech = useCallback(() => {
+    if (isSpeaking) {
+      pauseNarration();
+    } else if (isPaused && currentSentenceIndex >= 0) {
+      resumeNarration();
+    } else {
+      speakSentence(0);
+    }
+  }, [isSpeaking, isPaused, currentSentenceIndex, pauseNarration, resumeNarration, speakSentence]);
+
+  const handleSentenceClick = useCallback(
+    (flatIndex: number) => {
+      if (currentSentenceIndex === flatIndex && isSpeaking) {
+        pauseNarration();
+      } else {
+        speakSentence(flatIndex);
+      }
+    },
+    [currentSentenceIndex, isSpeaking, pauseNarration, speakSentence]
+  );
+
+  const handleNextSentence = useCallback(() => {
+    if (currentSentenceIndex < parsedSentences.flatSentences.length - 1) {
+      speakSentence(currentSentenceIndex + 1);
+    }
+  }, [currentSentenceIndex, parsedSentences, speakSentence]);
+
+  const handlePrevSentence = useCallback(() => {
+    if (currentSentenceIndex > 0) {
+      speakSentence(currentSentenceIndex - 1);
+    }
+  }, [currentSentenceIndex, speakSentence]);
+
+  const cycleSpeechRate = useCallback(() => {
+    const rates = [0.85, 0.95, 1.1, 1.25];
+    const currentIdx = rates.indexOf(speechRate);
+    const nextRate = rates[(currentIdx + 1) % rates.length];
+    setSpeechRate(nextRate);
+    speechRateRef.current = nextRate;
+    if (isSpeakingRef.current && currentSentenceIndexRef.current >= 0) {
+      speakSentence(currentSentenceIndexRef.current);
+    }
+  }, [speechRate, speakSentence]);
+
+  useEffect(() => {
+    stopNarration();
+  }, [activeArticle, stopNarration]);
 
   const handleSendArticleQuestion = async () => {
     const q = articleQuery.trim();
@@ -602,11 +828,8 @@ export const GyanPage: React.FC<GyanPageProps> = () => {
           <div className="pt-4 px-4 sm:px-6 pb-3.5 flex items-center gap-3 border-b border-[#252525] bg-[#0A0A0A]/95 backdrop-blur-md shrink-0 z-10">
             <button
               onClick={() => {
+                stopNarration();
                 setActiveArticle(null);
-                if (typeof window !== "undefined" && "speechSynthesis" in window) {
-                  window.speechSynthesis.cancel();
-                  setIsSpeaking(false);
-                }
               }}
               className="w-9 h-9 rounded-full bg-[#151515] border border-[#252525] flex items-center justify-center text-[#F5F5F5] hover:border-[#D9A441] hover:text-[#D9A441] transition-colors cursor-pointer text-sm"
               title="Back to wisdom library"
@@ -618,28 +841,50 @@ export const GyanPage: React.FC<GyanPageProps> = () => {
             </span>
             <button
               onClick={toggleSpeech}
-              title={isSpeaking ? "Stop narration" : "Listen to audio narration"}
-              className={`h-9 px-3.5 rounded-full border flex items-center gap-2 cursor-pointer transition-colors text-xs font-medium ${
+              title={
                 isSpeaking
-                  ? "bg-[#D9A441] border-[#D9A441] text-[#0A0A0A]"
+                  ? "Pause narration"
+                  : isPaused && currentSentenceIndex >= 0
+                  ? "Resume narration"
+                  : "Listen to audio narration"
+              }
+              className={`h-9 px-3.5 rounded-full border flex items-center gap-2 cursor-pointer transition-all text-xs font-medium ${
+                isSpeaking
+                  ? "bg-[#D9A441] border-[#D9A441] text-[#0A0A0A] shadow-[0_0_15px_rgba(217,164,65,0.4)] font-semibold"
+                  : isPaused && currentSentenceIndex >= 0
+                  ? "bg-[#D9A441]/20 border-[#D9A441] text-[#D9A441]"
                   : "bg-[#151515] border-[#252525] text-[#D9A441] hover:border-[#D9A441]"
               }`}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M11 5L6 9H2v6h4l5 4V5z"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.08"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                />
-              </svg>
-              <span>{isSpeaking ? "Stop" : "Listen"}</span>
+              {isSpeaking ? (
+                <div className="flex items-center gap-0.5 h-3">
+                  <span className="w-0.5 h-3 bg-[#0A0A0A] rounded-full animate-bounce [animation-delay:0.1s]" />
+                  <span className="w-0.5 h-2 bg-[#0A0A0A] rounded-full animate-bounce [animation-delay:0.3s]" />
+                  <span className="w-0.5 h-3.5 bg-[#0A0A0A] rounded-full animate-bounce [animation-delay:0.2s]" />
+                </div>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M11 5L6 9H2v6h4l5 4V5z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.08"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              )}
+              <span>
+                {isSpeaking
+                  ? "Pause"
+                  : isPaused && currentSentenceIndex >= 0
+                  ? "Resume"
+                  : "Listen"}
+              </span>
             </button>
           </div>
 
@@ -672,7 +917,32 @@ export const GyanPage: React.FC<GyanPageProps> = () => {
               <div className="text-[12px] font-semibold uppercase tracking-wider text-[#D9A441] mb-2">
                 {activeArticle.tag} · {activeArticle.source}
               </div>
-              <h1 className="font-serif-fraunces text-2xl sm:text-3xl font-semibold leading-snug text-[#F5F5F5] mb-3">
+              <h1
+                id="read-segment-title"
+                onClick={() => handleSentenceClick(0)}
+                title="Click to listen from title"
+                className={`font-serif-fraunces text-2xl sm:text-3xl font-semibold leading-snug mb-3 cursor-pointer transition-all duration-300 rounded-lg p-1.5 -ml-1.5 ${
+                  currentSentenceIndex === 0
+                    ? "bg-[#D9A441]/25 text-[#FFF2B2] shadow-[0_0_24px_rgba(217,164,65,0.3)] border-l-4 border-[#D9A441] pl-3.5 ring-1 ring-[#D9A441]/40"
+                    : isSpeaking
+                    ? "text-[#B0B0B0] hover:text-[#FFFFFF]"
+                    : "text-[#F5F5F5] hover:text-[#D9A441]/90"
+                }`}
+              >
+                {currentSentenceIndex === 0 && (
+                  <span className="inline-flex items-center mr-2 text-[#D9A441] align-middle animate-pulse">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                      <path
+                        d="M15.54 8.46a5 5 0 010 7.08"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        fill="none"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </span>
+                )}
                 {activeArticle.title}
               </h1>
               <div className="flex items-center gap-2 text-[12px] text-[#7A7A7A]">
@@ -684,11 +954,52 @@ export const GyanPage: React.FC<GyanPageProps> = () => {
 
             <div className="w-12 h-[2px] bg-[#D9A441]/40 rounded-full" />
 
-            {/* Article Paragraphs */}
-            <div className="space-y-4 text-[15px] sm:text-[16px] text-[#E0E0E0] leading-[1.75] font-normal">
-              {activeArticle.body.map((para, i) => (
-                <p key={i} className="whitespace-pre-line">
-                  {para}
+            {/* Article Paragraphs with Real-Time Reading Highlight */}
+            <div className="space-y-4 text-[15px] sm:text-[16px] leading-[1.8] font-normal">
+              {parsedSentences.paragraphs.map((sentencesInPara, pIdx) => (
+                <p key={pIdx} className="whitespace-pre-line text-left">
+                  {sentencesInPara.map((sent) => {
+                    const flatIndex = parsedSentences.flatSentences.findIndex(
+                      (s) => s.id === sent.id
+                    );
+                    const isActive = currentSentenceIndex === flatIndex;
+                    return (
+                      <span
+                        id={`read-segment-${sent.id}`}
+                        key={sent.id}
+                        onClick={() => handleSentenceClick(flatIndex)}
+                        title="Click to listen from this line"
+                        className={`inline cursor-pointer transition-all duration-300 rounded px-1.5 py-0.5 mx-0.5 select-text ${
+                          isActive
+                            ? "bg-[#D9A441]/25 text-[#FFF4C2] font-medium shadow-[0_0_18px_rgba(217,164,65,0.35)] border-b-2 border-[#D9A441] ring-1 ring-[#D9A441]/40"
+                            : isSpeaking
+                            ? "text-[#888888] hover:text-[#FFFFFF] hover:bg-white/5"
+                            : "text-[#E0E0E0] hover:text-[#FFFFFF] hover:bg-white/5"
+                        }`}
+                      >
+                        {isActive && (
+                          <span className="inline-flex items-center mr-1 text-[#D9A441] align-baseline animate-pulse">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                              <path
+                                d="M15.54 8.46a5 5 0 010 7.08"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                fill="none"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </span>
+                        )}
+                        {sent.text}{" "}
+                      </span>
+                    );
+                  })}
                 </p>
               ))}
             </div>
@@ -724,6 +1035,96 @@ export const GyanPage: React.FC<GyanPageProps> = () => {
               </div>
             )}
           </div>
+
+          {/* Floating Audio Reading Controller */}
+          {(isSpeaking || (isPaused && currentSentenceIndex >= 0)) && (
+            <div className="border-t border-[#292929] bg-[#121212]/95 backdrop-blur-md px-4 py-2.5 flex items-center justify-between gap-3 text-xs shrink-0 shadow-[0_-8px_20px_rgba(0,0,0,0.6)]">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="w-2 h-2 rounded-full bg-[#D9A441] animate-ping shrink-0" />
+                <span className="text-[#D9A441] font-medium truncate">
+                  {isSpeaking ? "Reading" : "Paused"} · Line{" "}
+                  {Math.max(1, currentSentenceIndex + 1)} of{" "}
+                  {parsedSentences.flatSentences.length}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* Prev line */}
+                <button
+                  onClick={handlePrevSentence}
+                  disabled={currentSentenceIndex <= 0}
+                  title="Previous sentence"
+                  className="w-7 h-7 rounded-full bg-[#1C1C1C] border border-[#2B2B2B] text-[#D9D9D9] hover:text-[#D9A441] hover:border-[#D9A441] flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+                  </svg>
+                </button>
+
+                {/* Play / Pause toggle */}
+                <button
+                  onClick={toggleSpeech}
+                  title={isSpeaking ? "Pause" : "Play"}
+                  className="w-8 h-8 rounded-full bg-[#D9A441] text-[#0A0A0A] font-bold flex items-center justify-center hover:bg-[#C29235] transition-transform active:scale-95 shadow-sm"
+                >
+                  {isSpeaking ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="ml-0.5"
+                    >
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  )}
+                </button>
+
+                {/* Next line */}
+                <button
+                  onClick={handleNextSentence}
+                  disabled={currentSentenceIndex >= parsedSentences.flatSentences.length - 1}
+                  title="Next sentence"
+                  className="w-7 h-7 rounded-full bg-[#1C1C1C] border border-[#2B2B2B] text-[#D9D9D9] hover:text-[#D9A441] hover:border-[#D9A441] flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+                  </svg>
+                </button>
+
+                {/* Rate Selector */}
+                <button
+                  onClick={cycleSpeechRate}
+                  title="Speed rate"
+                  className="px-2 py-0.5 rounded-md bg-[#1C1C1C] border border-[#2B2B2B] text-[11px] font-mono text-[#D9A441] hover:border-[#D9A441] transition-colors"
+                >
+                  {speechRate}x
+                </button>
+
+                {/* Stop button */}
+                <button
+                  onClick={stopNarration}
+                  title="Stop narration"
+                  className="w-7 h-7 rounded-full bg-[#1C1C1C] border border-[#2B2B2B] text-[#9A9A9A] hover:text-[#FF6B6B] hover:border-[#FF6B6B] flex items-center justify-center transition-colors ml-0.5"
+                >
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Ask Sakha Interactive Bar */}
           <div className="border-t border-[#252525] px-4 py-3 flex items-center gap-2.5 bg-[#0A0A0A] shrink-0">

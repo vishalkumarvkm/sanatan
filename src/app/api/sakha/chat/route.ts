@@ -102,8 +102,12 @@ You are a digital spiritual life coach — non-clinical, non-prescriptive, and d
 - You speak simply. You never lecture. You guide through questions, stories, and gentle suggestions
 - You use humour lightly — never sarcasm, never at the user's expense
 - You are confident in wisdom but humble about certainty — you say "the tradition suggests" or "one perspective is" rather than "you must" or "the answer is"
-- Address the user by their first name when available (${hasName ? userNameStr : "none"}). If no name is specified, greet them directly with "Namaste" without using generic filler words like "Seeker"
 - You remember what the user has shared within this conversation, continuing directly from where the conversation last ended.
+
+## Greeting & Politeness Rules (STRICT)
+- DO NOT start every response with "Namaste" or repetitive greetings! In ongoing dialogue or when answering a query, jump straight into the wisdom, insight, or advice naturally.
+- Only greet the user if the user is explicitly offering a greeting first (like "hello", "hi", "namaste", "pranam").
+- Do NOT repeat the user's name on every response. Speak naturally and fluently as a close spiritual companion.
 
 ## Boundaries — What You Never Do
 - You NEVER claim to be divine, a deity, a guru, or an enlightened being
@@ -116,7 +120,8 @@ You are a digital spiritual life coach — non-clinical, non-prescriptive, and d
 - If a user expresses suicidal ideation, self-harm, or severe mental health crisis, respond with empathy and immediately recommend speaking with a professional: iCall (9152987821), Vandrevala Foundation (9999 666 555), or local emergency services
 
 ## Response Style & Language
-- Always respond in warm, natural, conversational HINGLISH (Hindi written using Roman/English script like "Namaste, main aapke saath hoon. Bhagwan Shiva ki kripa se aapka din shanti se beete.") or the user's preferred language
+- Always respond in warm, natural, conversational HINGLISH (Hindi written using Roman/English script like "Bhagavad Gita mein Krishna kehte hain ki fal ki chinta mat karo, bas karm par dhyan do...") or the user's preferred language
+- Never begin responses with formulaic pleasantries or repeated "Namaste"
 - MANDATORY LENGTH RULE: Keep every response strictly short, between 2 to 3 lines (2 to 3 sentences max). NEVER write long paragraphs or exceed 3 lines under any circumstances.
 - STRICT FORMATTING RULE: Do NOT use markdown symbols like asterisks (* or **), backticks, or combined quote-asterisks (like *'...'*) in your text. Write clean, natural plain text with standard quotes ("...") for shlokas or emphasis.
 - Use one short shloka or quote only when it directly fits into the 2-3 lines
@@ -142,6 +147,19 @@ Use this context naturally. Reference their deity or practice when relevant, but
       "gemini-2.5-flash",
       "gemini-2.0-flash"
     ];
+
+    const stripRepetitiveGreeting = (text: string, userMsg: string): string => {
+      const isGreetingQuery = /^(hi|hello|hey|namaste|pranam|namaskaram|pranaam|good\s+(morning|evening|afternoon))\b/i.test(userMsg.trim());
+      if (isGreetingQuery) return text;
+
+      // Strip leading greetings like "Namaste, ", "Namaste Vishal, ", "Namaste! ", "Pranam, " etc.
+      let cleaned = text.replace(/^(namaste|namaskar|pranam|pranaam|namaskaram)(\s+[\w]+)?([,\.!—\s\-]+)/i, "").trim();
+      if (cleaned.length > 0) {
+        cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+        return cleaned;
+      }
+      return text;
+    };
 
     const apiBaseUrl = (process.env.GEMINI_API_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/models").replace(/\/$/, "");
 
@@ -199,7 +217,8 @@ Use this context naturally. Reference their deity or practice when relevant, but
           const data = await res.json();
           const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
           if (candidateText) {
-            return NextResponse.json({ success: true, response: candidateText });
+            const finalCleanText = stripRepetitiveGreeting(candidateText, userMessage);
+            return NextResponse.json({ success: true, response: finalCleanText });
           }
         } else {
           console.warn(`[Server Sakha API] Model ${cleanModel} returned ${res.status}, trying fallback...`);
@@ -209,7 +228,7 @@ Use this context naturally. Reference their deity or practice when relevant, but
       }
     }
 
-    const defaultFallback = `Om Namah Shivaya. ${hasName ? userNameStr + ", " : ""}trust in the divine flow. Peace and strength remain within your heart.`;
+    const defaultFallback = `Om Namah Shivaya. Trust in the divine flow. Peace and strength remain within your heart.`;
     return NextResponse.json({ success: true, response: defaultFallback });
 
   } catch (error: any) {
