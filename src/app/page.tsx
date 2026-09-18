@@ -7,10 +7,12 @@ import { Onboarding } from "@/components/Onboarding";
 import { HomePage as MySpacePage } from "@/components/HomePage";
 import { SakhaShrine as SakhaChatPage } from "@/components/SakhaShrine";
 import { GyanPage } from "@/components/GyanPage";
+import { GitaReader } from "@/components/GitaReader";
 import { ShrinePage } from "@/components/ShrinePage";
 import { ProfilePage } from "@/components/ProfilePage";
 import { Navigation } from "@/components/Navigation";
 import VoiceAssistantPanel from "@/components/VoiceAssistantPanel";
+import { AuthModal } from "@/components/AuthModal";
 import { submitOnboardingData, fetchGeneratedPersona } from "@/lib/api";
 import { AudioPlayerProvider } from "@/context/AudioPlayerContext";
 import { GlobalMiniPlayer } from "@/components/GlobalMiniPlayer";
@@ -22,13 +24,16 @@ type ScreenTab =
   | "gyan"
   | "shrine"
   | "myspace"
-  | "profile";
+  | "profile"
+  | "gita";
 
 export default function App() {
   const [profile, setProfile] = useState<UserProfile>(initialProfile);
   const [activeTab, setActiveTab] = useState<ScreenTab>("splash");
   const [chatInitialPrompt, setChatInitialPrompt] = useState<string | undefined>(undefined);
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [selectedGitaChapter, setSelectedGitaChapter] = useState(2);
   const [loaded, setLoaded] = useState(false);
   const isOnboardingSubmittingRef = useRef(false);
 
@@ -132,7 +137,8 @@ export default function App() {
     activeTab === "gyan" ||
     activeTab === "shrine" ||
     activeTab === "myspace" ||
-    activeTab === "profile";
+    activeTab === "profile" ||
+    activeTab === "gita";
 
   return (
     <AudioPlayerProvider>
@@ -155,7 +161,10 @@ export default function App() {
           }`}
         >
           {activeTab === "splash" && (
-            <SplashScreen onEnter={() => handleTabChange("onboarding")} />
+            <SplashScreen
+              onEnter={() => handleTabChange("onboarding")}
+              onEnterExistingUser={() => setIsAuthModalOpen(true)}
+            />
           )}
 
           {activeTab === "onboarding" && (
@@ -183,7 +192,24 @@ export default function App() {
 
           {activeTab === "gyan" && (
             <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col px-4 sm:px-6 lg:px-8">
-              <GyanPage profile={profile} />
+              <GyanPage
+                profile={profile}
+                onOpenGitaReader={(ch) => {
+                  if (ch) setSelectedGitaChapter(ch);
+                  handleTabChange("gita");
+                }}
+              />
+            </div>
+          )}
+
+          {activeTab === "gita" && (
+            <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col px-4 sm:px-6 lg:px-8">
+              <GitaReader
+                initialChapter={selectedGitaChapter}
+                onBack={() => handleTabChange("gyan")}
+                onAskSakha={handleNavigateToChat}
+                profile={profile}
+              />
             </div>
           )}
 
@@ -193,7 +219,7 @@ export default function App() {
             </div>
           )}
 
-          {(activeTab === "myspace" || activeTab === "profile") && (
+          {activeTab === "myspace" && (
             <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col px-4 sm:px-6 lg:px-8">
               <MySpacePage
                 profile={profile}
@@ -201,12 +227,29 @@ export default function App() {
                 onNavigateToShrine={() => handleTabChange("shrine")}
                 onOpenVoice={() => setIsVoiceAssistantOpen(true)}
                 onUpdateProfile={saveProfile}
+                onOpenGitaReader={(ch) => {
+                  if (ch) setSelectedGitaChapter(ch);
+                  handleTabChange("gita");
+                }}
                 onResetOnboarding={() => {
                   isOnboardingSubmittingRef.current = false;
                   setChatInitialPrompt(undefined);
-                  handleTabChange("onboarding");
+                  handleTabChange("splash");
                 }}
-                initialSubTab={activeTab === "profile" ? "profile" : "daily"}
+              />
+            </div>
+          )}
+
+          {activeTab === "profile" && (
+            <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col px-4 sm:px-6 lg:px-8">
+              <ProfilePage
+                profile={profile}
+                onUpdateProfile={saveProfile}
+                onResetOnboarding={() => {
+                  isOnboardingSubmittingRef.current = false;
+                  setChatInitialPrompt(undefined);
+                  handleTabChange("splash");
+                }}
               />
             </div>
           )}
@@ -221,6 +264,16 @@ export default function App() {
           onClose={() => setIsVoiceAssistantOpen(false)}
           onSendQuery={(query) => handleNavigateToChat(query)}
           profile={profile}
+        />
+
+        {/* Sacred Sign-In OTP Auth Modal for Existing User */}
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onLoginSuccess={(phone) => {
+            saveProfile({ ...profile, phone });
+            handleTabChange("myspace");
+          }}
         />
       </div>
     </AudioPlayerProvider>
