@@ -2,7 +2,7 @@ import { UserProfile } from "@/types/onboarding";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_API_BASE_URL ||
-  "http://185.199.53.174:8000";
+  "http://localhost:8000";
 
 export interface SendOtpResponse {
   success: boolean;
@@ -279,3 +279,161 @@ export const fetchGeneratedPersona = async (
     message: res.message,
   };
 };
+
+/**
+ * 5. Fetch Today's Holistic Content (Panchang summary, Quote, Reflection prompt)
+ */
+export const fetchTodayContent = async (
+  lat = 28.6139,
+  lon = 77.2090
+): Promise<{ success: boolean; data?: any; message?: string }> => {
+  const endpoint = `${BASE_URL}/api/v1/content/today?latitude=${lat}&longitude=${lon}`;
+  try {
+    const res = await fetch(endpoint, { method: "GET", headers: { accept: "application/json" } });
+    if (res.ok) {
+      const data = await res.json();
+      return { success: true, data };
+    }
+    return { success: false, message: `Status: ${res.status}` };
+  } catch (err: any) {
+    console.error("fetchTodayContent API Error:", err);
+    return { success: false, message: err.message || "Failed to fetch today content" };
+  }
+};
+
+/**
+ * 6. Send Sakha Chat Query directly to FastAPI backend /api/v1/sakha/query
+ */
+export const sendSakhaBackendQuery = async (
+  userMessage: string,
+  profile?: any,
+  history?: any[],
+  userId?: string
+): Promise<{ success: boolean; response?: string; sources?: any[]; message?: string }> => {
+  const endpoint = `${BASE_URL}/api/v1/sakha/query`;
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        userMessage,
+        profile,
+        history,
+        user_id: userId,
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        success: true,
+        response: data.response,
+        sources: data.sources || [],
+      };
+    }
+    return { success: false, message: `Status: ${res.status}` };
+  } catch (err: any) {
+    console.error("sendSakhaBackendQuery API Error:", err);
+    return { success: false, message: err.message || "Failed to reach Sakha backend service" };
+  }
+};
+
+/**
+ * 7. Fetch Bhagavad Gita Slok from public API https://vedicscriptures.github.io/slok/{ch}/{v}/
+ */
+export const fetchSlokFromApi = async (
+  chapter: number,
+  verse: number
+): Promise<{ success: boolean; data?: any; message?: string }> => {
+  const url = `https://vedicscriptures.github.io/slok/${chapter}/${verse}/`;
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      return { success: true, data };
+    }
+    return { success: false, message: `HTTP ${res.status}` };
+  } catch (err: any) {
+    console.error("fetchSlokFromApi Error:", err);
+    return { success: false, message: err.message || "Failed to fetch slok" };
+  }
+};
+
+/**
+ * 8. Fetch dynamic Gyan sanctuary cards from FastAPI backend
+ */
+export const fetchGyanContent = async (): Promise<{ success: boolean; data?: any; message?: string }> => {
+  const endpoint = `${BASE_URL}/api/v1/content/gyan`;
+  try {
+    const res = await fetch(endpoint, { method: "GET", headers: { accept: "application/json" } });
+    if (res.ok) {
+      const data = await res.json();
+      return { success: true, data };
+    }
+    return { success: false, message: `Status: ${res.status}` };
+  } catch (err: any) {
+    console.error("fetchGyanContent API Error:", err);
+    return { success: false, message: err.message || "Failed to fetch Gyan content" };
+  }
+};
+
+/**
+ * 9. Fetch dynamic shrine audio tracks from FastAPI backend
+ */
+export const fetchShrineTracks = async (): Promise<{ success: boolean; tracks?: any[]; message?: string }> => {
+  const endpoint = `${BASE_URL}/api/v1/content/shrine/tracks`;
+  try {
+    const res = await fetch(endpoint, { method: "GET", headers: { accept: "application/json" } });
+    if (res.ok) {
+      const data = await res.json();
+      return { success: true, tracks: data.tracks || [] };
+    }
+    return { success: false, message: `Status: ${res.status}` };
+  } catch (err: any) {
+    console.error("fetchShrineTracks API Error:", err);
+    return { success: false, message: err.message || "Failed to fetch shrine tracks" };
+  }
+};
+
+/**
+ * 10. Fetch 18 Gita chapters meta from FastAPI backend
+ */
+export const fetchGitaChapters = async (): Promise<{ success: boolean; chapters?: any[]; message?: string }> => {
+  const endpoint = `${BASE_URL}/api/v1/content/gita/chapters`;
+  try {
+    const res = await fetch(endpoint, { method: "GET", headers: { accept: "application/json" } });
+    if (res.ok) {
+      const data = await res.json();
+      return { success: true, chapters: data.chapters || [] };
+    }
+    return { success: false, message: `Status: ${res.status}` };
+  } catch (err: any) {
+    console.error("fetchGitaChapters API Error:", err);
+    return { success: false, message: err.message || "Failed to fetch Gita chapters" };
+  }
+};
+
+/**
+ * 11. Fetch dynamic vertical spiritual shorts/reels from FastAPI backend
+ */
+export const fetchSpiritualShorts = async (): Promise<{ success: boolean; shorts?: any[]; message?: string }> => {
+  const endpoint = `${BASE_URL}/api/v1/content/shorts`;
+  try {
+    const res = await fetch(endpoint, { method: "GET", headers: { accept: "application/json" } });
+    if (res.ok) {
+      const data = await res.json();
+      return { success: true, shorts: data.shorts || [] };
+    }
+    return { success: false, message: `Status: ${res.status}` };
+  } catch (err: any) {
+    console.error("fetchSpiritualShorts API Error:", err);
+    return { success: false, message: err.message || "Failed to fetch spiritual shorts" };
+  }
+};
+
+
+
+

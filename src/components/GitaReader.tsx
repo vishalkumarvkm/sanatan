@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   ArrowLeft, 
   Search, 
@@ -16,6 +16,8 @@ import {
   X
 } from "lucide-react";
 import { UserProfile } from "@/types/onboarding";
+import { fetchSlokFromApi } from "@/lib/api";
+import { InlineSakhaChatModal } from "@/components/InlineSakhaChatModal";
 
 interface GitaReaderProps {
   initialChapter?: number;
@@ -403,6 +405,7 @@ export const GitaReader: React.FC<GitaReaderProps> = ({
   initialChapter = 2,
   onBack,
   onAskSakha,
+  profile,
 }) => {
   const [selectedChapter, setSelectedChapter] = useState(initialChapter);
   const [showHindi, setShowHindi] = useState(false);
@@ -411,11 +414,139 @@ export const GitaReader: React.FC<GitaReaderProps> = ({
   const [bookmarkedVerses, setBookmarkedVerses] = useState<Set<string>>(new Set(["2.47", "18.66"]));
   const [expandedWordByWord, setExpandedWordByWord] = useState<Set<string>>(new Set(["2.47"]));
   const [expandedPurport, setExpandedPurport] = useState<Set<string>>(new Set());
+  const [speakingVerseKey, setSpeakingVerseKey] = useState<string | null>(null);
+  const [isInlineChatOpen, setIsInlineChatOpen] = useState(false);
+  const [inlineChatPrompt, setInlineChatPrompt] = useState<string | undefined>(undefined);
+
+  const handleSpeakVerse = (verse: GitaVerseData) => {
+    const verseKey = `${verse.chapterNumber}.${verse.verseNumber}`;
+
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      alert("Speech synthesis is not supported in this browser environment.");
+      return;
+    }
+
+    const synth = window.speechSynthesis;
+
+    // If currently speaking this verse, stop speaking
+    if (speakingVerseKey === verseKey && synth.speaking) {
+      synth.cancel();
+      setSpeakingVerseKey(null);
+      return;
+    }
+
+    // Cancel any previous speech
+    synth.cancel();
+
+    // Prepare recitation text: sloka + translation
+    const textToSpeak = showHindi && verse.hindiTranslation
+      ? `${verse.sanskritText}. ${verse.hindiTranslation}`
+      : `${verse.romanText || verse.sanskritText}. ${verse.englishTranslation}`;
+
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    utterance.rate = 0.88; // Calm, respectful pace for sacred slokas
+    utterance.pitch = 1.0;
+
+    const voices = synth.getVoices();
+    if (showHindi) {
+      const hiVoice = voices.find((v) => v.lang.startsWith("hi") || v.lang.startsWith("sa"));
+      if (hiVoice) utterance.voice = hiVoice;
+    } else {
+      const enVoice = voices.find((v) => v.lang.startsWith("en-IN") || v.lang.startsWith("en"));
+      if (enVoice) utterance.voice = enVoice;
+    }
+
+    utterance.onend = () => {
+      setSpeakingVerseKey(null);
+    };
+
+    utterance.onerror = () => {
+      setSpeakingVerseKey(null);
+    };
+
+    setSpeakingVerseKey(verseKey);
+    synth.speak(utterance);
+  };
+
+  // Cleanup speech when component unmounts or chapter changes
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, [selectedChapter]);
+
+  const [liveVerses, setLiveVerses] = useState<GitaVerseData[]>([]);
+  const [isLoadingLive, setIsLoadingLive] = useState(false);
 
   const currentChapterObj =
     GITA_CHAPTERS.find((c) => c.chapterNumber === selectedChapter) || GITA_CHAPTERS[1];
 
-  const displayedVerses = GITA_SAMPLE_VERSES.filter((v) => {
+  // Fetch live verse data from vedicscriptures API when chapter changes
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingLive(true);
+
+    const versesToFetch = [1, 2, 3]; // Fetch first few verses of the chapter
+    if (selectedChapter === 2 && !versesToFetch.includes(47)) versesToFetch.push(47);
+
+    Promise.all(
+      versesToFetch.map(async (vNum) => {
+        const res = await fetchSlokFromApi(selectedChapter, vNum);
+        if (res.success && res.data) {
+          const d = res.data;
+          const engTrans =
+            d.siva?.et || d.prabhu?.et || d.purohit?.et || d.adi?.et || "Translation unavailable";
+          const hindiTrans =
+            d.tej?.ht || "हिन्दी अनुवाद उपलब्ध";
+          const purportText =
+            d.prabhu?.ec || d.siva?.ec || d.chinmay?.hc || "Spiritual commentary from traditional Gita scholars.";
+
+          return {
+            chapterNumber: d.chapter || selectedChapter,
+            verseNumber: d.verse || vNum,
+            sanskritText: d.slok || "",
+            romanText: d.transliteration || "",
+            wordByWord: [
+              { word: "Chapter", meaning: `${d.chapter}` },
+              { word: "Verse", meaning: `${d.verse}` }
+            ],
+            englishTranslation: engTrans,
+            hindiTranslation: hindiTrans,
+            purport: purportText,
+          } as GitaVerseData;
+        }
+        return null;
+      })
+    ).then((results) => {
+      if (!isMounted) return;
+      const valid = results.filter(Boolean) as GitaVerseData[];
+      setLiveVerses(valid);
+      setIsLoadingLive(false);
+    }).catch(() => {
+      if (isMounted) setIsLoadingLive(false);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedChapter]);
+
+  // Combine sample verses with live API verses, removing duplicates
+  const allVersesMap = new Map<string, GitaVerseData>();
+  GITA_SAMPLE_VERSES.filter((v) => v.chapterNumber === selectedChapter).forEach((v) => {
+    allVersesMap.set(`${v.chapterNumber}.${v.verseNumber}`, v);
+  });
+  liveVerses.forEach((v) => {
+    allVersesMap.set(`${v.chapterNumber}.${v.verseNumber}`, v);
+  });
+
+  const allAvailableVerses = Array.from(allVersesMap.values()).sort(
+    (a, b) => a.verseNumber - b.verseNumber
+  );
+
+  const displayedVerses = allAvailableVerses.filter((v) => {
     if (isSearching && searchQuery.trim().length > 0) {
       const q = searchQuery.toLowerCase();
       return (
@@ -426,7 +557,7 @@ export const GitaReader: React.FC<GitaReaderProps> = ({
         v.purport.toLowerCase().includes(q)
       );
     }
-    return v.chapterNumber === selectedChapter;
+    return true;
   });
 
   const toggleBookmark = (ch: number, v: number) => {
@@ -613,19 +744,21 @@ export const GitaReader: React.FC<GitaReaderProps> = ({
               {/* Header Badge */}
               <div className="flex items-center justify-between">
                 <span className="bg-[#C9A55C]/15 border border-[#C9A55C]/40 text-[#C9A55C] text-xs font-bold px-3 py-1 rounded-xl">
-                  Verse {verse.chapterNumber}.${verse.verseNumber}
+                  Verse {verseKey}
                 </span>
 
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() =>
-                      alert(`Playing audio recitation for Verse ${verseKey}...`)
-                    }
-                    className="p-1.5 rounded-full hover:bg-white/10 text-[#C9A55C] cursor-pointer"
-                    title="Listen Recitation"
+                    onClick={() => handleSpeakVerse(verse)}
+                    className={`p-1.5 rounded-full transition-all cursor-pointer ${
+                      speakingVerseKey === verseKey
+                        ? "bg-[#C9A55C] text-[#0A0A0A] animate-pulse ring-2 ring-[#C9A55C]/50"
+                        : "hover:bg-white/10 text-[#C9A55C]"
+                    }`}
+                    title={speakingVerseKey === verseKey ? "Stop Recitation" : "Listen Recitation"}
                   >
-                    <Volume2 className="w-4 h-4" />
+                    <Volume2 className={`w-4 h-4 ${speakingVerseKey === verseKey ? "animate-bounce" : ""}`} />
                   </button>
                   <button
                     type="button"
@@ -710,11 +843,11 @@ export const GitaReader: React.FC<GitaReaderProps> = ({
               <div className="flex items-center justify-between pt-2 border-t border-white/5">
                 <button
                   type="button"
-                  onClick={() =>
-                    onAskSakha(
-                      `Explain Bhagavad Gita Verse ${verse.chapterNumber}.${verse.verseNumber} (${verse.romanText}) and how to apply its wisdom in modern life.`
-                    )
-                  }
+                  onClick={() => {
+                    const prompt = `Explain Bhagavad Gita Verse ${verse.chapterNumber}.${verse.verseNumber} (${verse.romanText}) and how to apply its wisdom in modern life.`;
+                    setInlineChatPrompt(prompt);
+                    setIsInlineChatOpen(true);
+                  }}
                   className="bg-[#C9A55C] hover:bg-[#B8944B] text-[#0A0A0A] font-bold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer transition-transform active:scale-95 shadow-md"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
@@ -734,6 +867,14 @@ export const GitaReader: React.FC<GitaReaderProps> = ({
           );
         })}
       </div>
+
+      {/* In-Page Inline Sakha AI Chat Modal */}
+      <InlineSakhaChatModal
+        isOpen={isInlineChatOpen}
+        onClose={() => setIsInlineChatOpen(false)}
+        initialPrompt={inlineChatPrompt}
+        profile={profile}
+      />
     </div>
   );
 };

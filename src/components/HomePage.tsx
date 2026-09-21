@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { UserProfile } from "@/types/onboarding";
 import { JapaMeditationModal } from "@/components/JapaMeditationModal";
 import { PanchangFestivalModal } from "@/components/PanchangFestivalModal";
 import { WisdomShareModal } from "@/components/WisdomShareModal";
+import { fetchTodayContent } from "@/lib/api";
 
 interface HomePageProps {
   profile: UserProfile;
@@ -38,6 +39,24 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [showPanchangModal, setShowPanchangModal] = useState(false);
   const [showWisdomShareModal, setShowWisdomShareModal] = useState(false);
   const [activeAudioToast, setActiveAudioToast] = useState<string | null>(null);
+
+  const [livePanchang, setLivePanchang] = useState<any>(null);
+  const [liveQuote, setLiveQuote] = useState<any>(null);
+
+  useEffect(() => {
+    fetchTodayContent().then((res) => {
+      if (res.success && res.data) {
+        if (res.data.panchangSummary) {
+          setLivePanchang(res.data.panchangSummary);
+        }
+        if (res.data.dailyQuote) {
+          setLiveQuote(res.data.dailyQuote);
+        }
+      }
+    }).catch((err) => {
+      console.warn("[HomePage] Could not fetch live Panchang from backend:", err);
+    });
+  }, []);
 
   const toggleRitual = (key: keyof typeof rituals) => {
     setRituals((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -149,15 +168,23 @@ export const HomePage: React.FC<HomePageProps> = ({
             <div className="flex items-center gap-2 bg-[#1C1C1C] border border-white/5 rounded-xl p-2.5">
               <span className="text-base">🌕</span>
               <div>
-                <div className="text-xs font-bold text-white">Shukla Chaturthi</div>
-                <div className="text-[9px] text-white/40">Tithi ends at 11:14 PM</div>
+                <div className="text-xs font-bold text-white">
+                  {livePanchang ? livePanchang.tithi : "Shukla Chaturthi"}
+                </div>
+                <div className="text-[9px] text-white/40">
+                  {livePanchang ? `Vara: ${livePanchang.vara}` : "Tithi ends at 11:14 PM"}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-2 bg-[#1C1C1C] border border-white/5 rounded-xl p-2.5">
               <span className="text-base">✨</span>
               <div>
-                <div className="text-xs font-bold text-white">Swati Nakshatra</div>
-                <div className="text-[9px] text-white/40">Until 04:32 PM</div>
+                <div className="text-xs font-bold text-white">
+                  {livePanchang ? livePanchang.nakshatra : "Swati Nakshatra"}
+                </div>
+                <div className="text-[9px] text-white/40">
+                  {livePanchang ? `Moon: ${livePanchang.moonRashi}` : "Until 04:32 PM"}
+                </div>
               </div>
             </div>
           </div>

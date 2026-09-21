@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { UserProfile } from "@/types/onboarding";
 import { JapaMeditationModal } from "@/components/JapaMeditationModal";
 import { WisdomShareModal } from "@/components/WisdomShareModal";
+import { InlineSakhaChatModal } from "@/components/InlineSakhaChatModal";
+import { fetchGyanContent } from "@/lib/api";
 
 interface GyanPageProps {
   profile?: UserProfile;
@@ -11,13 +13,27 @@ interface GyanPageProps {
   onNavigateToChat?: (initialPrompt?: string) => void;
 }
 
-export const GyanPage: React.FC<GyanPageProps> = ({ onOpenGitaReader, onNavigateToChat }) => {
+export const GyanPage: React.FC<GyanPageProps> = ({ profile, onOpenGitaReader, onNavigateToChat }) => {
   const [activeFilter, setActiveFilter] = useState("All");
   const [japaCounter, setJapaCounter] = useState(54);
   const [searchQuery, setSearchQuery] = useState("");
   const [showJapaModal, setShowJapaModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareText, setShareText] = useState("");
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [chatPrompt, setChatPrompt] = useState<string | undefined>(undefined);
+
+  const [gyanData, setGyanData] = useState<any>(null);
+
+  useEffect(() => {
+    fetchGyanContent().then((res) => {
+      if (res.success && res.data) {
+        setGyanData(res.data);
+      }
+    }).catch((err) => {
+      console.warn("[GyanPage] Backend fetch error:", err);
+    });
+  }, []);
 
   return (
     <div className="w-full min-h-screen bg-[#0A0A0A] text-[#FAFAFA] flex flex-col relative select-none font-sans pb-32 md:pb-12">
@@ -97,8 +113,67 @@ export const GyanPage: React.FC<GyanPageProps> = ({ onOpenGitaReader, onNavigate
           })}
         </div>
 
-        {/* Card 1: Featured Moksha Suktam Card */}
-        <div className="bg-[#141414] border border-[#C9A55C]/40 rounded-2xl p-5 shadow-lg flex flex-col gap-3.5">
+        {/* Card 1: Bhagavad Gita Verse Card */}
+        <div className="bg-[#141414] border border-[#C9A55C]/40 rounded-2xl p-5 shadow-lg flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-[#C9A55C] uppercase tracking-wider">
+              Karma Yoga • Lord Krishna
+            </span>
+            <span className="text-white/40 text-xs">📑</span>
+          </div>
+
+          <h2 className="font-serif-fraunces text-xl font-bold text-white">
+            Bhagavad Gita — Chapter 2, Verse 47
+          </h2>
+
+          <p className="devanagari-font text-base font-bold text-[#C9A55C] leading-relaxed">
+            कर्मण्येवाधिकारस्ते मा फलेषु कदाचन ।<br />
+            मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि ॥
+          </p>
+
+          <p className="font-serif-fraunces italic text-xs text-white/80 leading-relaxed">
+            &ldquo;You have a right to perform your prescribed duty, but not to the fruits of action. Never consider yourself the cause of results, nor be attached to inaction.&rdquo;
+          </p>
+
+          <div className="flex items-center gap-2 text-[10px] text-white/50">
+            <span className="bg-white/5 px-2.5 py-0.5 rounded-full">#Core Wisdom</span>
+            <span className="bg-white/5 px-2.5 py-0.5 rounded-full">#Duty & Detachment</span>
+            <span>⏱ 01:10 min</span>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1 flex-wrap">
+            <button
+              type="button"
+              onClick={() => onOpenGitaReader?.(2)}
+              className="bg-[#C9A55C] text-[#0A0A0A] hover:bg-[#B8944B] font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer transition-all shadow-md active:scale-95"
+            >
+              <span>📖</span>
+              <span>Read 18 Chapters</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenGitaReader?.(2)}
+              className="bg-[#C9A55C]/15 border border-[#C9A55C]/40 text-[#C9A55C] hover:bg-[#C9A55C]/25 font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <span>▶</span>
+              <span>Listen Verse</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShareText("कर्मण्येवाधिकारस्ते मा फलेषु कदाचन । - Bhagavad Gita 2.47");
+                setShowShareModal(true);
+              }}
+              className="bg-white/8 hover:bg-white/12 text-white/80 font-bold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <span>🖼️</span>
+              <span>Share Wallpaper</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Card 2: Featured Moksha Suktam Card */}
+        <div className="bg-[#141414] border border-white/10 rounded-2xl p-5 shadow-sm flex flex-col gap-3.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-[#C9A55C]">🔱</span>
@@ -168,7 +243,10 @@ export const GyanPage: React.FC<GyanPageProps> = ({ onOpenGitaReader, onNavigate
               </button>
               <button
                 type="button"
-                onClick={() => onNavigateToChat?.("Explain the spiritual meaning and benefits of Maha Mrityunjaya Mantra")}
+                onClick={() => {
+                  setChatPrompt("Explain the spiritual meaning and benefits of Maha Mrityunjaya Mantra");
+                  setShowChatModal(true);
+                }}
                 className="bg-white/10 text-white hover:bg-white/15 font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors active:scale-95"
               >
                 <span>💬</span>
@@ -188,65 +266,6 @@ export const GyanPage: React.FC<GyanPageProps> = ({ onOpenGitaReader, onNavigate
                 <span>Share Card</span>
               </button>
             </div>
-          </div>
-        </div>
-
-        {/* Card 2: Bhagavad Gita Verse Card */}
-        <div className="bg-[#141414] border border-white/10 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-[#C9A55C] uppercase tracking-wider">
-              Karma Yoga • Lord Krishna
-            </span>
-            <span className="text-white/40 text-xs">📑</span>
-          </div>
-
-          <h2 className="font-serif-fraunces text-lg font-bold text-white">
-            Bhagavad Gita — Chapter 2, Verse 47
-          </h2>
-
-          <p className="devanagari-font text-base font-bold text-[#C9A55C] leading-relaxed">
-            कर्मण्येवाधिकारस्ते मा फलेषु कदाचन ।<br />
-            मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि ॥
-          </p>
-
-          <p className="font-serif-fraunces italic text-xs text-white/80 leading-relaxed">
-            &ldquo;You have a right to perform your prescribed duty, but not to the fruits of action. Never consider yourself the cause of results, nor be attached to inaction.&rdquo;
-          </p>
-
-          <div className="flex items-center gap-2 text-[10px] text-white/50">
-            <span className="bg-white/5 px-2.5 py-0.5 rounded-full">#Core Wisdom</span>
-            <span className="bg-white/5 px-2.5 py-0.5 rounded-full">#Duty & Detachment</span>
-            <span>⏱ 01:10 min</span>
-          </div>
-
-          <div className="flex items-center gap-2 pt-1 flex-wrap">
-            <button
-              type="button"
-              onClick={() => onOpenGitaReader?.(2)}
-              className="bg-[#C9A55C]/15 border border-[#C9A55C]/40 text-[#C9A55C] hover:bg-[#C9A55C]/25 font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors"
-            >
-              <span>▶</span>
-              <span>Listen Verse</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onOpenGitaReader?.(2)}
-              className="bg-[#C9A55C] text-[#0A0A0A] hover:bg-[#B8944B] font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer transition-all shadow-md active:scale-95"
-            >
-              <span>📖</span>
-              <span>Read 18 Chapters</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShareText("कर्मण्येवाधिकारस्ते मा फलेषु कदाचन । - Bhagavad Gita 2.47");
-                setShowShareModal(true);
-              }}
-              className="bg-white/8 hover:bg-white/12 text-white/80 font-bold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors"
-            >
-              <span>🖼️</span>
-              <span>Share Wallpaper</span>
-            </button>
           </div>
         </div>
 
@@ -336,6 +355,13 @@ export const GyanPage: React.FC<GyanPageProps> = ({ onOpenGitaReader, onNavigate
           customText={shareText || undefined}
         />
       )}
+
+      <InlineSakhaChatModal
+        isOpen={showChatModal}
+        onClose={() => setShowChatModal(false)}
+        initialPrompt={chatPrompt}
+        profile={profile}
+      />
     </div>
   );
 };

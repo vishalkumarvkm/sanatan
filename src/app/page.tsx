@@ -215,7 +215,7 @@ export default function App() {
 
           {activeTab === "shrine" && (
             <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col px-4 sm:px-6 lg:px-8">
-              <ShrinePage profile={profile} />
+              <ShrinePage profile={profile} onNavigateToChat={handleNavigateToChat} />
             </div>
           )}
 

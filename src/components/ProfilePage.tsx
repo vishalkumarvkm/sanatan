@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { UserProfile } from "@/types/onboarding";
+import { fetchUserProfile } from "@/lib/api";
 import { 
   Bell, 
   RotateCcw, 
@@ -36,6 +37,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [formData, setFormData] = useState<UserProfile>(profile);
   const [diyasCount, setDiyasCount] = useState(5);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+
+  const [backendUserDetail, setBackendUserDetail] = useState<any>(null);
+
+  useEffect(() => {
+    if (profile.userId) {
+      fetchUserProfile(profile.userId).then((res) => {
+        if (res.success) {
+          setBackendUserDetail(res);
+        }
+      }).catch((err) => {
+        console.warn("[ProfilePage] Could not fetch backend user profile:", err);
+      });
+    }
+  }, [profile.userId]);
 
   const handleSave = () => {
     onUpdateProfile(formData);
